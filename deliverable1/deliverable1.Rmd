@@ -1,0 +1,196 @@
+---
+title: "Deliverable 1"
+author: "Pere Arnau Alegre & Andrés Jiménez González"
+date: \today
+output:
+  word_document:
+    toc: no
+    toc_depth: '4'
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  html_document:
+    toc: no
+    toc_depth: '4'
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
+fontsize: 18pt
+subtitle: Data Processing, Description, Validation and Profiling
+classoption: a4paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Data description
+* Description http://www.nyc.gov/html/tlc/html/about/trip_record_data.shtml
+* Data Dictionary - SHL Trip Data -This data dictionary describes SHL trip data
+
+## Variables
+* VendorID
+  * A code indicating the LPEP provider that provided the record.     
+  * Values: 
+    * 1= Creative Mobile Technologies, LLC
+    * 2= VeriFone Inc.   
+* lpep_pickup_datetime	
+  * The date and time when the meter was engaged.    
+* lpep_dropoff_datetime	
+  * The date and time when the meter was disengaged.     
+* Passenger_count	
+  * The number of passengers in the vehicle. 
+  * This is a driver-entered value.    
+* Trip_distance
+  * The elapsed trip distance in miles reported by the taximeter.   
+* Pickup_longitude
+  * Longitude where the meter was engaged.   
+* Pickup_latitude
+  * Latitude where the meter was engaged.   
+* RateCodeID
+  * The final rate code in effect at the end of the trip.
+  * Values: 
+      * 1=Standard rate  
+      * 2=JFK 
+      * 3=Newark 
+      * 4=Nassau or Westchester 
+      * 5=Negotiated fare 
+      * 6=Group ride   
+* Store_and_fwd_flag	
+  * This flag indicates whether the trip record was held in vehicle memory before sending to the vendor, aka "store and forward," because the vehicle did not have a connection to the server: 
+  * Values
+    * Y= store and forward trip  
+    * N= not a store and forward trip   
+* Dropoff_longitude	
+  * Longitude where the meter was timed off.   
+* Dropoff_latitude	
+  * Latitude where the meter was timed off.   
+* Payment_type
+  * A numeric code signifying how the passenger paid for the trip.
+  * Values:
+    * 1= Credit card 
+    * 2= Cash 
+    * 3= No charge 
+    * 4= Dispute 
+* Fare_amount	
+  * The time-and-distance fare calculated by the meter.   
+* Extra	 
+  * Miscellaneous extras and surcharges.  
+  * Currently, this only includes the $0.50 and $1 rush hour and overnight charges.
+* MTA_tax	 
+  * $0.50 MTA tax that is automatically triggered based on the metered rate in use.
+* Improvement_surcharge	
+  * $0.30 improvement surcharge assessed on hailed trips at the flag   drop. 
+  * The improvement surcharge began being levied in 2015.   
+* Tip_amount
+  * This field is automatically populated for credit card tips. 
+  * Cash tips are not included.   
+* Tolls_amount	
+  * Total amount of all tolls paid in trip.    
+* Total_amount	
+  * The total amount charged to passengers. 
+  * Does not include cash tips.   
+* Trip_type	
+  * A code indicating whether the trip was a street-hail or a dispatch that is automatically assigned based on the metered rate in use but can be altered by the driver. 
+  * Values:
+    * 1= Street-hail 
+    * 2= Dispatch 
+
+# Loading of Required Packages for the deliverable
+We load the necessary packages and set the working directory
+```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
+#setwd("~Desktop/adei")
+setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
+# Load Required Packages
+options(contrasts=c("contr.treatment","contr.treatment"))
+requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr")
+missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
+if(length(missingPackages)) install.packages(missingPackages)
+lapply(requiredPackages, require, character.only = TRUE)
+```  
+
+## Select a sample of 5000 records
+From the proposed database, we need to select a sample of 5000 records randomly so we can start analyzing our data.
+```{r echo = T, results = 'hide'}
+if(!is.null(dev.list())) dev.off()  # Clear plots
+rm(list=ls())                       # Clean workspace
+```
+
+Data: green_tripdata_2016-01.csv
+```{r}
+filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
+df<-read.table(paste0(filepath,"/green_tripdata_2016-01.csv"),header=T, sep=",")
+# dim(df)       # Displays the sample size
+# names(df)     # Displays the names of the sample variables
+# summary(df)   
+```
+
+Select your 5000 register sample (random sample)
+```{r echo = T, results = 'hide'}
+set.seed(123456)
+sam<-as.vector(sort(sample(1:nrow(df),5000)))
+```
+
+Verification and storage of the sample
+```{r}
+head(df)
+df<-df[sam,]
+rownames(df) <- 1:nrow(df) #rename row id's from 1 to nrows
+summary(df)
+```
+
+```
+#Save the image
+#{r echo = T, results = 'hide'}
+#save.image("T5000_raw.RData")
+```
+
+
+## Some useful functions
+```{r}
+calcQ <- function(x) { # Function to calculate the different quartiles
+  s.x <- summary(x)
+  iqr<-s.x[5]-s.x[2]
+  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3], 
+       q3=s.x[5], max=s.x[6], mouts=s.x[5]+1.5*iqr, souts=s.x[5]+3*iqr ) 
+}
+countNA <- function(x) { # Function to count the NA values
+  mis_x <- NULL
+  for (j in 1:ncol(x)) {mis_x[j] <- sum(is.na(x[,j])) }
+  mis_x <- as.data.frame(mis_x)
+  rownames(mis_x) <- names(x)
+  mis_i <- rep(0,nrow(x))
+  for (j in 1:ncol(x)) {mis_i <- mis_i + as.numeric(is.na(x[,j])) }
+  list(mis_col=mis_x,mis_ind=mis_i) 
+}
+countX <- function(x,X) { # Function to count a specific number of appearences
+  n_x <- NULL
+  for (j in 1:ncol(x)) {n_x[j] <- sum(x[,j]==X) }
+  n_x <- as.data.frame(n_x)
+  rownames(n_x) <- names(x)
+  nx_i <- rep(0,nrow(x))
+  for (j in 1:ncol(x)) {nx_i <- nx_i + as.numeric(x[,j]==X) }
+  list(nx_col=n_x,nx_ind=nx_i) 
+}
+```
+
+# Variable initialization of missings, outliers and errors
+Initialization of counts for missings, outliers and errors. All numerical variables have to be checked before.
+
+```{r}
+
+imis<-rep(0,nrow(df))  # rows - trips
+jmis<-rep(0,2*ncol(df))  # columns - variables
+
+mis1<-countNA(df)
+mis1$mis_ind # Number of missings for the current set of trips
+mis1$mis_col # Number of missings for the current set of variables
+
+iouts<-rep(0,nrow(df))  # rows - trips
+jouts<-rep(0,2*ncol(df))  # columns - variables
+
+ierrs<-rep(0,nrow(df))  # rows - trips
+jerrs<-rep(0,2*ncol(df))  # columns - variables
+```
+
+
