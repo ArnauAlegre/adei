@@ -99,8 +99,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-#setwd("~Desktop/adei")
-setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
+setwd("C:/Users/Arnau/Documents/GitHub/adei/deliverable1")
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr")
@@ -118,8 +117,9 @@ rm(list=ls())                       # Clean workspace
 
 Data: green_tripdata_2016-01.csv
 ```{r}
-filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
-df<-read.table(paste0(filepath,"/green_tripdata_2016-01.csv"),header=T, sep=",")
+filepath<-"C:/Users/Arnau/Documents/GitHub/adei/deliverable1"
+df<-read.table(paste0(filepath,"/green_tripdata_2016-01.csv"),header=T, sep=",")[c(-1)]
+
 # dim(df)       # Displays the sample size
 # names(df)     # Displays the names of the sample variables
 # summary(df)   
@@ -129,6 +129,7 @@ Select your 5000 register sample (random sample)
 ```{r echo = T, results = 'hide'}
 set.seed(123456)
 sam<-as.vector(sort(sample(1:nrow(df),5000)))
+#write.csv(df,"C:/Users/Arnau/Desktop/green_tripdata_2016-01.csv", row.names = TRUE, na="NA")
 ```
 
 Verification and storage of the sample
@@ -192,5 +193,33 @@ jouts<-rep(0,2*ncol(df))  # columns - variables
 ierrs<-rep(0,nrow(df))  # rows - trips
 jerrs<-rep(0,2*ncol(df))  # columns - variables
 ```
+
+#Univariate Description and Preprocessing
+
+##Factorization of variables
+```{r}
+df$VendorID <- factor(df$VendorID)
+levels(df$VendorID)
+df$VendorID <- factor(df$VendorID,levels = c("1", "2"), labels=c("CMT", "Verifone"))
+
+
+df$RateCodeID <- factor(df$RateCodeID)
+levels(df$RateCodeID)
+df$RateCodeID <- factor(df$RateCodeID,levels = c("1", "2", "3", "4", "5", "6"), labels=c("Std_rate", "JFK", 
+                                                                                     "Newark", "Nassau/Wetches",
+                                                                                     "Negociated_fare", "Group_ride"))
+table(df$RateCodeID)
+
+df$Store_and_fwd_flag<-factor(df$Store_and_fwd_flag)
+levels(df$Store_and_fwd_flag)
+df$Store_and_fwd_flag <- factor(df$Store_and_fwd_flag,levels = c("N", "Y"), labels=c("store&forward_trip", "not_store&forward_trip"))
+
+df$Payment_type<- factor(df$Payment_type,levels = c("1", "2", "3", "4", "5", "6"), labels=c("Credit_card", "Cash", "No_charge", "Dispute", "Unknown", "Voided_trip"))
+table(df$Payment_type)
+
+df$Trip_type <- factor(df$Trip_type,levels = c("1", "2"), labels=c("Street-hail", "Dispatch"))
+table(df$Trip_type)
+```
+
 
 
