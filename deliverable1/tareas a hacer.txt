@@ -1,0 +1,41 @@
+Entregar documento PDF de 40 páginas máximo llamado Name1FamilyName1-Name2FamilyName2-Del1.pdf
+El pdf tiene que describir las decisiones, procedimientos, criterios, etc.
+También se ha de entregar el RScript/Rmarkdown.
+
+Cosas a hacer:
+
+**Univariate Descriptive Analysis (para cada variable):
+
+- Pasar las variables númericas que corresponden a qualitativas a factoes. New factors grouping original levels will be considered very positively.
+- Las varibles númericas se dejarán como continuas pero se deben crear nuevas variables factores por cada variable númerica.
+- Numeric summary and graphic support.  
+
+**Data Quality Report:
+
+Por variable:
+- Numero de valores faltantes.
+- Numero de errores (incluyendo inconsistencias)
+- Numero de outliers
+- Hacer ranking de las variables según la suma de valores faltantes y errores.
+
+Por individuo:
+- Numero de valores faltantes.
+- Numero de errores (incluyendo inconsistencias)
+- Numero de outliers
+
+- Crear una variable añadiendo el numero total de valores faltantes, outliers y errores.
+
+Describe these variables, to which other variables exist higher associations.  
+
+- Calcular la relación con todas las otras variables. Hacer ranking de las variables según su correlación.
+- Calcular para cada grupo de individuos la media de valores missing/outliers/errors. Hacer ranking de los grupos segun la media.
+
+**Imputation:
+- Variables númericas
+- Factores
+
+**Profiling:
+Numeric Target (Total Amount)
+Factor (Y.bin - Given Tip?)
+
+- Identificar multivariant outliers.
