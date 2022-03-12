@@ -29,72 +29,43 @@ knitr::opts_chunk$set(echo = TRUE)
 * Data Dictionary - SHL Trip Data -This data dictionary describes SHL trip data
 
 ## Variables
-* VendorID
-  * A code indicating the LPEP provider that provided the record.     
-  * Values: 
-    * 1= Creative Mobile Technologies, LLC
-    * 2= VeriFone Inc.   
-* lpep_pickup_datetime	
-  * The date and time when the meter was engaged.    
-* lpep_dropoff_datetime	
-  * The date and time when the meter was disengaged.     
-* Passenger_count	
-  * The number of passengers in the vehicle. 
-  * This is a driver-entered value.    
-* Trip_distance
-  * The elapsed trip distance in miles reported by the taximeter.   
-* Pickup_longitude
-  * Longitude where the meter was engaged.   
-* Pickup_latitude
-  * Latitude where the meter was engaged.   
-* RateCodeID
-  * The final rate code in effect at the end of the trip.
-  * Values: 
-      * 1=Standard rate  
-      * 2=JFK 
-      * 3=Newark 
-      * 4=Nassau or Westchester 
-      * 5=Negotiated fare 
-      * 6=Group ride   
-* Store_and_fwd_flag	
-  * This flag indicates whether the trip record was held in vehicle memory before sending to the vendor, aka "store and forward," because the vehicle did not have a connection to the server: 
-  * Values
-    * Y= store and forward trip  
-    * N= not a store and forward trip   
-* Dropoff_longitude	
-  * Longitude where the meter was timed off.   
-* Dropoff_latitude	
-  * Latitude where the meter was timed off.   
-* Payment_type
-  * A numeric code signifying how the passenger paid for the trip.
+* Model
+  * A string indicating the model of the car.     
+* Year	
+  * A discrete numeric variable to indicate the year the car was sold
+* Price
+  * Continuous variable indicating the price at which the car was sold
+* Transmission
+  * Categorical variable that indicates the type of transmission of the car
   * Values:
-    * 1= Credit card 
-    * 2= Cash 
-    * 3= No charge 
-    * 4= Dispute 
-* Fare_amount	
-  * The time-and-distance fare calculated by the meter.   
-* Extra	 
-  * Miscellaneous extras and surcharges.  
-  * Currently, this only includes the $0.50 and $1 rush hour and overnight charges.
-* MTA_tax	 
-  * $0.50 MTA tax that is automatically triggered based on the metered rate in use.
-* Improvement_surcharge	
-  * $0.30 improvement surcharge assessed on hailed trips at the flag   drop. 
-  * The improvement surcharge began being levied in 2015.   
-* Tip_amount
-  * This field is automatically populated for credit card tips. 
-  * Cash tips are not included.   
-* Tolls_amount	
-  * Total amount of all tolls paid in trip.    
-* Total_amount	
-  * The total amount charged to passengers. 
-  * Does not include cash tips.   
-* Trip_type	
-  * A code indicating whether the trip was a street-hail or a dispatch that is automatically assigned based on the metered rate in use but can be altered by the driver. 
+    * Automatic
+    * Manual
+    * Semi-Automatic
+    * Other
+* Mileage
+  * A discrete numeric variable to indicate the number of miles the car had when it was sold
+* Fuel Type
+  * Categorical variable that indicates the type of fuel of the car
   * Values:
-    * 1= Street-hail 
-    * 2= Dispatch 
+    * Diesel
+    * Electric
+    * Hybrid
+    * Petrol
+    * Other
+* Tax
+  * A discrete numeric variable to indicate the road tax of the vehicle.
+* MPG
+  *  Continuous variable indicating the fuel consumption of the car
+* Engine Size
+  * Continuous variable indicating the size of the engine
+* Manufacturer
+  * Categorical variable that indicates the manufacturer brand of the car.
+  * Values:
+    * Mercedes
+    * Audi
+    * Volkswagen
+    * BMW
+
 
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
@@ -115,10 +86,29 @@ if(!is.null(dev.list())) dev.off()  # Clear plots
 rm(list=ls())                       # Clean workspace
 ```
 
-Data: green_tripdata_2016-01.csv
+Combine the dataset of Audi, BMW, Volkswagen and Mercedes into one.
+```{r}
+{r}
+# Lecture of DataFrames:
+df1 <- read.table("audi.csv",header=T, sep=",")
+df1$manufacturer <- "Audi"
+df2 <- read.table("bmw.csv",header=T, sep=",")
+df2$manufacturer <- "BMW"
+df3 <- read.table("merc.csv",header=T, sep=",")
+df3$manufacturer <- "Mercedes"
+df4 <- read.table("vw.csv",header=T, sep=",")
+df4$manufacturer <- "VW"
+
+# Union by row:
+df <- rbind(df1,df2,df3,df4)
+#write.csv(df,"C:/Users/Arnau/Documents/GitHub/adei/deliverable1/sample_5000.csv", row.names = TRUE, na="NA")
+```
+
+
+Data: used_car_dataset.csv
 ```{r}
 filepath<-"C:/Users/Arnau/Documents/GitHub/adei/deliverable1"
-df<-read.table(paste0(filepath,"/green_tripdata_2016-01.csv"),header=T, sep=",")[c(-1)]
+df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
 # names(df)     # Displays the names of the sample variables
@@ -129,7 +119,6 @@ Select your 5000 register sample (random sample)
 ```{r echo = T, results = 'hide'}
 set.seed(123456)
 sam<-as.vector(sort(sample(1:nrow(df),5000)))
-#write.csv(df,"C:/Users/Arnau/Desktop/green_tripdata_2016-01.csv", row.names = TRUE, na="NA")
 ```
 
 Verification and storage of the sample
@@ -180,21 +169,102 @@ Initialization of counts for missings, outliers and errors. All numerical variab
 
 ```{r}
 
-imis<-rep(0,nrow(df))  # rows - trips
+imis<-rep(0,nrow(df))  # rows - cars
 jmis<-rep(0,2*ncol(df))  # columns - variables
 
 mis1<-countNA(df)
-mis1$mis_ind # Number of missings for the current set of trips
+mis1$mis_ind # Number of missings for the current set of cars (observations)
 mis1$mis_col # Number of missings for the current set of variables
 
-iouts<-rep(0,nrow(df))  # rows - trips
-jouts<-rep(0,2*ncol(df))  # columns - variables
+iouts<-rep(0,nrow(df))  # rows - cars
+jouts<-rep(0,ncol(df))  # columns - variables
 
-ierrs<-rep(0,nrow(df))  # rows - trips
-jerrs<-rep(0,2*ncol(df))  # columns - variables
+ierrs<-rep(0,nrow(df))  # rows - cars
+jerrs<-rep(0,ncol(df))  # columns - variables
 ```
 
 #Univariate Description and Preprocessing
+
+
+## Qualitative Variables (Factors) / Categorical
+**Description**: Original numeric variables corresponding to qualitative concepts have to be converted to factors. New factors grouping original levels will be considered very positively.
+We need to do an analysis of all the variables to be able to identify missings, errors and outliers. 
+We will also try to factorize each variable to make it easier to understand the sample.
+
+### 1. Model
+This variable indicates the model of the car.
+```{r}
+df$model<-factor(paste0(df$manufacturer,"-",df$model))
+#levels(df$model)
+summary(df$model)
+#Too many models to represent them in a graph
+#The is not missing data or erroneous data, so we will not make any change in the model column
+```
+
+### 2. Year
+A discrete numeric variable to indicate the year the car was sold, ranging from 1970 to 2020
+
+#### New variable - Years after sell
+A discrete numeric variable to indicate how many years have passed from when the car was sold since 2022.
+
+```{r}
+df$years_after_sell <-  2022 - df$year
+boxplot(df$years_after_sell, main="Boxplot of years after sell", col="darkslateblue")
+#We can see that there are superior outliers in the dataset, so we will treat them.
+summary(df$years_after_sell)
+var_out<-calcQ(df$years_after_sell)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+
+llout<-which((df$years_after_sell >= var_out$souts))
+iouts[llout] <- iouts[llout]+1
+jouts[which(colnames(df)=="years_after_sell")]<-length(llout)
+
+
+#We will group all the superior outliers into one variable
+df[which(df$years_after_sell >= var_out$souts),"years_after_sell"] <- paste0(var_out$souts, " or more")
+barplot(table(df$years_after_sell), main="Barplot of years after sell", col="darkslateblue")
+```
+
+#### Factorization of outlier detection of the variable year
+```{r}
+boxplot(df$year, main="Boxplot of sold year", col="darkslateblue")
+#df$year <- factor(df$year)
+#We can see that there are outliers in the dataset, so we will treat them.
+summary(df$year)
+var_out<-calcQ(df$year)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+
+llout<-which((df$year <= var_out$souti))
+iouts[llout] <- iouts[llout]+1
+jouts[which(colnames(df)=="year")]<-length(llout)
+
+#We will group all the inferior outliers into one variable
+df[which(df$year<=var_out$souti),"year"] <- paste0(var_out$souti, " or before")
+barplot(table(df$year), main="Barplot of sold year", col="darkslateblue")
+```
+
+### 3. Price
+Arnau
+
+### 4. Transmission
+Arnau
+
+### 5. Mileage
+Arnau
+
+### 6. fuleType
+Andres
+
+### 7. Tax
+Andres
+
+### 8. MPG
+Andres
+
+### 9. EngineSyze
+Andres --> contabilizar errores
 
 ##Factorization of variables
 ```{r}
