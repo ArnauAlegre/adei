@@ -6,8 +6,8 @@ Cosas a hacer:
 
 **Univariate Descriptive Analysis (para cada variable):
 
-- Pasar las variables númericas que corresponden a qualitativas a factoes. New factors grouping original levels will be considered very positively.
-- Las varibles númericas se dejarán como continuas pero se deben crear nuevas variables factores por cada variable númerica.
+- Pasar las variables númericas que corresponden a qualitativas a factores. New factors grouping original levels will be considered very positively. **
+- Las varibles númericas se dejarán como continuas pero se deben crear nuevas variables factores por cada variable númerica. **
 - Numeric summary and graphic support.  
 
 **Data Quality Report:
