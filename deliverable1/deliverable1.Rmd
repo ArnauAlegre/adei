@@ -70,7 +70,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-setwd("C:/Users/Arnau/Documents/GitHub/adei/deliverable1")
+setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr")
@@ -107,7 +107,7 @@ df <- rbind(df1,df2,df3,df4)
 
 Data: used_car_dataset.csv
 ```{r}
-filepath<-"C:/Users/Arnau/Documents/GitHub/adei/deliverable1"
+filepath<-"C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -254,17 +254,81 @@ Arnau
 ### 5. Mileage
 Arnau
 
-### 6. fuleType
+### 6. fuelType
 Andres
+```{r}
+df$fuelType <- factor(df$fuelType)
+levels(df$fuelType)
+df$fuelType <- factor( df$fuelType, levels = c("Diesel","Petrol","Hybrid"), labels = paste0("f.Fuel-",c("Diesel","Petrol","Hybrid")))
+```
+
 
 ### 7. Tax
 Andres
+```{r}
+boxplot(df$tax, main="Boxplot of tax", col="darkslateblue")
+#df$year <- factor(df$year)
+#We can see that there are outliers in the dataset, so we will treat them.
+summary(df$tax)
+var_out<-calcQ(df$tax)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+
+llout<-which((df$tax <= var_out$souti & df$tax >= var_out$souts))
+iouts[llout] <- iouts[llout]+1
+jouts[which(colnames(df)=="tax")]<-length(llout)
+df$tax[llout, "tax"] <- NA
+
+summary(df$tax)
+Boxplot(df$tax)
+
+quantile(df$tax,seq(0,1,0.25),na.rm=TRUE)
+quantile(df$tax,seq(0,1,0.1),na.rm=TRUE)
+
+# df$aux<-factor(cut(df$tax,breaks=quantile(df$tax,seq(0,1,0.25),na.rm=TRUE),include.lowest = T )) # Does not work
+df$aux<-factor(cut(df$tax,breaks=c(0, 125, 145, 570),include.lowest = T ))
+summary(df$aux)
+tapply(df$tax,df$aux,median)
+df$f.tax<-factor(cut(df$tax,breaks=c(0, 125, 145, 570),include.lowest = T ))
+levels(df$f.tax)<-paste("f.tax-",levels(df$f.tax),sep="")
+table(df$f.tax,useNA="always")
+```
 
 ### 8. MPG
 Andres
+```{r}
+#Outliers are replaced by NA
+boxplot(df$mpg)
+var_out<-calcQ(df$mpg)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+llout_mpg<-which((df$mpg<var_out$souti)|(df$mpg>var_out$souts))
+iouts[llout_mpg]<-iouts[llout_mpg]+1
+jouts[which(colnames(df)=="mpg")]<-length(llout)
+df[llout_mpg,"mpg"] <- NA
+```
+
 
 ### 9. EngineSyze
 Andres --> contabilizar errores
+```{r}
+df$engineSize <- factor(df$engineSize)
+levels(df$engineSize)
+
+df[which(df[,"engineSize"]==0),]
+
+# It is a quantitive variable  Non-possible values will be recoded to NA
+sel<-which(df$engineSize==0)
+ierrs[sel]<-ierrs[sel]+1 #Vector of errors per individual update
+sel                 #### sel contains the rownames of the individuals with "0" 
+#                        as  value for engineSize
+# We should update jerrs vector: errors per variable
+
+# df[sel,"engineSize"]<-3    # non-possible values are replaced by NA, missing value symbol in R
+# NA assignment for forward imputation:
+df[sel,"engineSize"]<-NA
+```
+
 
 ##Factorization of variables
 ```{r}
