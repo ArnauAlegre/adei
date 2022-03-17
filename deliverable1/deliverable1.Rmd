@@ -70,7 +70,11 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
+<<<<<<< Updated upstream
 setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
+=======
+setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
+>>>>>>> Stashed changes
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr")
@@ -107,7 +111,11 @@ df <- rbind(df1,df2,df3,df4)
 
 Data: used_car_dataset.csv
 ```{r}
+<<<<<<< Updated upstream
 filepath<-"C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1"
+=======
+filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
+>>>>>>> Stashed changes
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -246,13 +254,64 @@ barplot(table(df$year), main="Barplot of sold year", col="darkslateblue")
 ```
 
 ### 3. Price
-Arnau
+We know that the price should be positive, so we will treat as errors the prices <= 0.
+```{r}
+summary(df$price)
+sel<-which(df$price <= 0)
+ierrs[sel] <- ierrs[sel] + 1
+jerrs[which(colnames(df)=="price")] <- length(sel)
+#We will delete the rows with errors in the price because we cannot make imputations for our target variable.
+df <- df[-sel, ]
+```
+Non positive values are replaced by NA.
+#### Outlier detection
+```{r}
+boxplot(df$price)
+var_out<-calcQ(df$price)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+#We can see there are outliers in the dataset so we will treat them.
+#As this is the response variable, we will delete the outlier rows because we cannot delete the value and impute it.
+llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
+#iouts[llout] <- iouts[llout]+1
+jouts[which(colnames(df)=="price")]<-length(llout_price)
+df <- df[-llout_price, ]
+```
+
+In orther to better analyze the price of the cars and to group them, we will create a categorical variable representing the price of the car.
+```{r}
+
+df$price_type <- df$price
+df$price_type[which(df$price >= var_out$min & df$price_type < var_out$q1)] <- "super cheap"
+df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "cheap"
+df$price_type[which(df$price >= var_out$q2 & df$price_type < var_out$q3)] <- "expensive"
+df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- "very expensive"
+df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
+table(df$price_type)
+```
+
+
 
 ### 4. Transmission
-Arnau
+
+```{r}
+df$transmission <- factor( df$transmission )
+levels( df$transmission )
+df$transmission <- factor( df$transmission, levels = c("Manual","Semi-Auto","Automatic"),labels = paste0("f.Trans-",c("Manual","SemiAuto","Automatic")))
+#All transmission not listed above have been replaced as NA
+```
 
 ### 5. Mileage
-Arnau
+```{r}
+boxplot(df$mileage)
+var_out<-calcQ(df$mileage)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+llout_mil<-which((df$mileage<var_out$souti)|(df$mileage>var_out$souts))
+iouts[llout_mil]<-iouts[llout_mil]+1
+df[llout_mil,"mileage"] <- NA
+```
+
 
 ### 6. fuelType
 Andres
