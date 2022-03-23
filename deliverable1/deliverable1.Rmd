@@ -70,7 +70,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
+setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot")
@@ -89,7 +89,7 @@ rm(list=ls())                       # Clean workspace
 
 Data: used_car_dataset.csv
 ```{r}
-filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
+filepath<-"C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -140,25 +140,6 @@ countX <- function(x,X) { # Function to count a specific number of appearences
 }
 ```
 
-# Variable initialization of missings, outliers and errors
-Initialization of counts for missings, outliers and errors. All numerical variables have to be checked before.
-
-```{r}
-
-imis<-rep(0,nrow(df))  # rows - cars
-jmis<-rep(0,2*ncol(df))  # columns - variables
-
-mis1<-countNA(df)
-mis1$mis_ind # Number of missings for the current set of cars (observations)
-mis1$mis_col # Number of missings for the current set of variables
-
-iouts<-rep(0,nrow(df))  # rows - cars
-jouts<-rep(0,ncol(df))  # columns - variables
-
-ierrs<-rep(0,nrow(df))  # rows - cars
-jerrs<-rep(0,ncol(df))  # columns - variables
-```
-
 #Univariate Description and Preprocessing
 
 
@@ -166,6 +147,50 @@ jerrs<-rep(0,ncol(df))  # columns - variables
 **Description**: Original numeric variables corresponding to qualitative concepts have to be converted to factors. New factors grouping original levels will be considered very positively.
 We need to do an analysis of all the variables to be able to identify missings, errors and outliers. 
 We will also try to factorize each variable to make it easier to understand the sample.
+
+# Variable initialization of missings, outliers and errors for columns
+```{r}
+jmis<-rep(0,2*ncol(df))  # columns - variables
+
+mis1<-countNA(df)
+mis1$mis_ind # Number of missings for the current set of cars (observations)
+mis1$mis_col # Number of missings for the current set of variables
+
+jouts<-rep(0,ncol(df))  # columns - variables
+
+jerrs<-rep(0,ncol(df))  # columns - variables
+```
+
+### 3. Price
+We know that the price should be positive, so we will treat as errors the prices <= 0. We don't count the errors by rows for the variable price because we erase that rows.
+```{r}
+summary(df$price)
+sel<-which(df$price <= 0)
+jerrs[which(colnames(df)=="price")] <- length(sel)
+#We will delete the rows with errors in the price because we cannot make imputations for our target variable.
+df <- df[which(df$price > 0), ]
+
+boxplot(df$price)
+var_out<-calcQ(df$price)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+#We can see there are outliers in the dataset so we will treat them.
+#As this is the response variable, we will delete the outlier rows because we cannot delete the value and impute it.
+llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
+#iouts[llout] <- iouts[llout]+1
+jouts[which(colnames(df)=="price")]<-length(llout_price)
+df <- df[-llout_price, ]
+```
+
+# Variable initialization of missings, outliers and errors for rows
+Initialization of counts for missings, outliers and errors. All numerical variables have to be checked before.
+```{r}
+imis<-rep(0,nrow(df))  # rows - cars
+
+iouts<-rep(0,nrow(df))  # rows - cars
+
+ierrs<-rep(0,nrow(df))  # rows - cars
+```
 
 ### 1. Model
 This variable indicates the model of the car.
@@ -199,31 +224,6 @@ df[llout,"year"] <- NA
 summary(df$year)
 #df[which(df$year<=var_out$souti),"year"] <- paste0(var_out$souti, " or before")
 barplot(table(df$year), main="Barplot of sold year", col="darkslateblue")
-```
-
-### 3. Price
-We know that the price should be positive, so we will treat as errors the prices <= 0.
-```{r}
-summary(df$price)
-sel<-which(df$price <= 0)
-ierrs[sel] <- ierrs[sel] + 1
-jerrs[which(colnames(df)=="price")] <- length(sel)
-#We will delete the rows with errors in the price because we cannot make imputations for our target variable.
-df <- df[-sel, ]
-```
-Non positive values are replaced by NA.
-#### Outlier detection
-```{r}
-boxplot(df$price)
-var_out<-calcQ(df$price)
-abline(h=var_out$souts,col="red")
-abline(h=var_out$souti,col="red")
-#We can see there are outliers in the dataset so we will treat them.
-#As this is the response variable, we will delete the outlier rows because we cannot delete the value and impute it.
-llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
-#iouts[llout] <- iouts[llout]+1
-jouts[which(colnames(df)=="price")]<-length(llout_price)
-df <- df[-llout_price, ]
 ```
 
 In orther to better analyze the price of the cars and to group them, we will create a categorical variable representing the price of the car.
@@ -283,7 +283,7 @@ abline(h=var_out$souti,col="red")
 llout<-which((df$tax <= var_out$souti & df$tax >= var_out$souts))
 iouts[llout] <- iouts[llout]+1
 jouts[which(colnames(df)=="tax")]<-length(llout)
-df$tax[llout, "tax"] <- NA
+df[llout, "tax"] <- NA
 
 summary(df$tax)
 boxplot(df$tax)
@@ -409,7 +409,7 @@ boxplot(df$years_after_sell, main="Boxplot of years after sell", col="darkslateb
 summary(df$years_after_sell)
 ```
 
-## 3. Variable Tax
+## 3. Discretization of the variable Tax
 ```{r}
 quantile(df$tax,seq(0,1,0.25),na.rm=TRUE)
 quantile(df$tax,seq(0,1,0.1),na.rm=TRUE)
@@ -425,21 +425,21 @@ levels(df$f.tax)<-paste("f.tax-",levels(df$f.tax),sep="")
 table(df$f.tax,useNA="always")
 ```
 
-## 4. Variable mileage
+## 4. Discretization of the variable mileage
 ```{r}
 df$f.mileage<-factor(cut(df$mileage,breaks=c(quantile(df$mileage,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
 levels(df$f.mileage)<-paste("f.mileage-",levels(df$f.mileage),sep="")
 table(df$f.mileage,useNA="always")
 ```
 
-## 4. Variable mpg
+## 4. Discretization of the variable mpg
 ```{r}
 df$f.mpg<-factor(cut(df$mpg,breaks=c(quantile(df$mpg,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
 levels(df$f.mpg)<-paste("f.mpg-",levels(df$f.mpg),sep="")
 table(df$f.mpg,useNA="always")
 ```
 
-## 5. Variable year
+## 5. Discretization of the variable year
 ```{r}
 df$f.year<-factor(cut(df$year,breaks=c(quantile(df$year,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
 levels(df$f.year)<-paste("f.mpg-",levels(df$f.year),sep="")
@@ -452,7 +452,7 @@ Describe these variables, to which other variables exist higher associations.
 ##Compute the correlation with all other variables. Rank these variables according the correlation
 ```{r}
 df$inconsistencies <- imis+iouts+ierrs
-vars_quanti <- c(2,3,5,7,8,9,12)
+vars_quanti <- c(2,3,5,7,8,13,18)
 res <- cor(df[,vars_quanti])
 round(res, 2)
 corrplot(res)
@@ -461,11 +461,11 @@ corrplot(res)
 ##Mean of missing/outliers/errors per groups
 Compute for every group of individuals (group of age, etc, …) the mean of missing/outliers/errors values. Rank the groups according the computed mean.
 ```{r}
+df_aux <- data.frame("Modelo"=c("Audi", "VM", "Mercedes", "BMW"))
 df_aux$vw_inconsists <- mean(df$inconsistencies[ which(df$manufacturer=="VW")])
 df_aux$audi_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Audi")])
 df_aux$bmw_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="BMW")])
 df_aux$merc_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Mercedes")])
-df_aux <- data.frame("Modelo"=c("Audi", "VM", "Mercedes", "BMW"))
 df_aux$incons <- c(vw_inconsists, audi_inconsis, bmw_inconsis, merc_inconsis)
 df_aux2<-df_aux[order(df_aux$incons),]
 barplot(df_aux2$incons, names.arg = df_aux2$Modelo)
