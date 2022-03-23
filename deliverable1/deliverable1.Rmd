@@ -180,29 +180,7 @@ summary(df$model)
 ### 2. Year
 A discrete numeric variable to indicate the year the car was sold, ranging from 1970 to 2020
 
-#### New variable - Years after sell
-A discrete numeric variable to indicate how many years have passed from when the car was sold since 2022.
-
-```{r}
-df$years_after_sell <-  2022 - df$year
-boxplot(df$years_after_sell, main="Boxplot of years after sell", col="darkslateblue")
-#We can see that there are superior outliers in the dataset, so we will treat them.
-summary(df$years_after_sell)
-var_out<-calcQ(df$years_after_sell)
-abline(h=var_out$souts,col="red")
-abline(h=var_out$souti,col="red")
-
-llout<-which((df$years_after_sell >= var_out$souts))
-iouts[llout] <- iouts[llout]+1
-jouts[which(colnames(df)=="years_after_sell")]<-length(llout)
-
-
-#We will group all the superior outliers into one variable
-df[which(df$years_after_sell >= var_out$souts),"years_after_sell"] <- paste0(var_out$souts, " or more")
-barplot(table(df$years_after_sell), main="Barplot of years after sell", col="darkslateblue")
-```
-
-#### Factorization of outlier detection of the variable year
+#### Factorization and outlier detection of the variable year
 ```{r}
 boxplot(df$year, main="Boxplot of sold year", col="darkslateblue")
 #df$year <- factor(df$year)
@@ -217,7 +195,9 @@ iouts[llout] <- iouts[llout]+1
 jouts[which(colnames(df)=="year")]<-length(llout)
 
 #We will group all the inferior outliers into one variable
-df[which(df$year<=var_out$souti),"year"] <- paste0(var_out$souti, " or before")
+df[llout,"year"] <- NA
+summary(df$year)
+#df[which(df$year<=var_out$souti),"year"] <- paste0(var_out$souti, " or before")
 barplot(table(df$year), main="Barplot of sold year", col="darkslateblue")
 ```
 
@@ -248,7 +228,6 @@ df <- df[-llout_price, ]
 
 In orther to better analyze the price of the cars and to group them, we will create a categorical variable representing the price of the car.
 ```{r}
-
 df$price_type <- df$price
 df$price_type[which(df$price >= var_out$min & df$price_type < var_out$q1)] <- "super cheap"
 df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "cheap"
@@ -257,7 +236,6 @@ df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- 
 df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
 table(df$price_type)
 ```
-
 
 
 ### 4. Transmission
@@ -287,6 +265,7 @@ Andres
 df$fuelType <- factor(df$fuelType)
 levels(df$fuelType)
 df$fuelType <- factor( df$fuelType, levels = c("Diesel","Petrol","Hybrid"), labels = paste0("f.Fuel-",c("Diesel","Petrol","Hybrid")))
+#All fuelTypes not listed above have been replaced as NA
 ```
 
 
@@ -309,16 +288,6 @@ df$tax[llout, "tax"] <- NA
 summary(df$tax)
 boxplot(df$tax)
 
-quantile(df$tax,seq(0,1,0.25),na.rm=TRUE)
-quantile(df$tax,seq(0,1,0.1),na.rm=TRUE)
-
-# df$aux<-factor(cut(df$tax,breaks=quantile(df$tax,seq(0,1,0.25),na.rm=TRUE),include.lowest = T )) # Does not work
-df$aux<-factor(cut(df$tax,breaks=c(0, 125, 145, 570),include.lowest = T ))
-summary(df$aux)
-tapply(df$tax,df$aux,median)
-df$f.tax<-factor(cut(df$tax,breaks=c(0, 125, 145, 570),include.lowest = T ))
-levels(df$f.tax)<-paste("f.tax-",levels(df$f.tax),sep="")
-table(df$f.tax,useNA="always")
 ```
 
 ### 8. MPG
@@ -356,30 +325,125 @@ sel                 #### sel contains the rownames of the individuals with "0"
 df[sel,"engineSize"]<-NA
 ```
 
+#Imputation
+What we do with imputation is be able to eliminate all those values that may be missings, outliers or errors to turn them into values that can be realistic within our sample.
 
-##Factorization of variables
+## Imputation of numeric variables
+
 ```{r}
-df$VendorID <- factor(df$VendorID)
-levels(df$VendorID)
-df$VendorID <- factor(df$VendorID,levels = c("1", "2"), labels=c("CMT", "Verifone"))
+library(missMDA)
+# Now one by one describe vars and put them on lists
+vars_con<-c("year", "mileage", "tax", "mpg")
+vars_res<-c("price")
+
+summary(df[,vars_con])
+res.impca<-imputePCA(df[,vars_con],ncp=3)
+summary(res.impca$completeObs)
+
+# Check one by one:
+par(mfrow=c(1,2))
+hist(df$year)
+hist(res.impca$completeObs[,"year"])
+hist(df$mileage)
+hist(res.impca$completeObs[,"mileage"])
+hist(df$tax)
+hist(res.impca$completeObs[,"tax"])
+hist(df$mpg)
+hist(res.impca$completeObs[,"mpg"])
+
+# Once you have validated the process:
+df[,vars_con ]<-res.impca$completeObs
+
+```
+
+## Imputation of qualitative variables
+
+```{r}
+vars_dis<-c("model","transmission","fuelType","engineSize","manufacturer")
+summary(df[,vars_dis])
+res.immca<-imputeMCA(df[,vars_dis],ncp=4)
+summary(res.immca$completeObs)
+# Check one by one (we only have enginesize, transmission & fuelType)
+barplot(table(df$engineSize))
+barplot(table(res.immca$completeObs[,"engineSize"]))
+barplot(table(df$transmission))
+barplot(table(res.immca$completeObs[,"transmission"]))
+barplot(table(df$fuelType))
+barplot(table(res.immca$completeObs[,"fuelType"]))
 
 
-df$RateCodeID <- factor(df$RateCodeID)
-levels(df$RateCodeID)
-df$RateCodeID <- factor(df$RateCodeID,levels = c("1", "2", "3", "4", "5", "6"), labels=c("Std_rate", "JFK", 
-                                                                                     "Newark", "Nassau/Wetches",
-                                                                                     "Negociated_fare", "Group_ride"))
-table(df$RateCodeID)
+# Once you have validated the process
+df[ , vars_dis ]<-res.immca$completeObs
 
-df$Store_and_fwd_flag<-factor(df$Store_and_fwd_flag)
-levels(df$Store_and_fwd_flag)
-df$Store_and_fwd_flag <- factor(df$Store_and_fwd_flag,levels = c("N", "Y"), labels=c("store&forward_trip", "not_store&forward_trip"))
+# Are there NA?
+sum(countNA(df)$mis_ind)==0
 
-df$Payment_type<- factor(df$Payment_type,levels = c("1", "2", "3", "4", "5", "6"), labels=c("Credit_card", "Cash", "No_charge", "Dispute", "Unknown", "Voided_trip"))
-table(df$Payment_type)
+par(mfrow=c(1,1))
+```
 
-df$Trip_type <- factor(df$Trip_type,levels = c("1", "2"), labels=c("Street-hail", "Dispatch"))
-table(df$Trip_type)
+
+# Creation and discretization of new variables
+
+## 1. New variable: Audi/Not Audi
+```{r}
+# Binary Target: Audi?
+
+df$Audi<-ifelse(df$manufacturer == "Audi",1,0)
+df$Audi<-factor(df$Audi,labels=c("No","Yes"))
+summary(df$Audi)
+# Pie
+piepercent<-round(100*(table(df$Audi)/nrow(df)),dig=2); piepercent
+pie(table(df$Audi),col=heat.colors(2),labels=paste(piepercent,"%"))
+legend("topright", levels(df$Audi), cex = 0.8, fill = heat.colors(2))
+# Bar Chart
+barplot(table(df$Audi),main="Barplot Binary Outcome - Factor",col=c("red","green"))
+```
+
+## 2. New variable: yearsAferSell
+A discrete numeric variable to indicate how many years have passed from when the car was sold since 2022.
+
+```{r}
+df$years_after_sell <-  2022 - df$year
+boxplot(df$years_after_sell, main="Boxplot of years after sell", col="darkslateblue")
+#There are no extreme outliers in the variable because we treated outliers in the variable year.
+summary(df$years_after_sell)
+```
+
+## 3. Variable Tax
+```{r}
+quantile(df$tax,seq(0,1,0.25),na.rm=TRUE)
+quantile(df$tax,seq(0,1,0.1),na.rm=TRUE)
+quants <- calcQ(df$tax)
+
+# df$aux<-factor(cut(df$tax,breaks=quantile(df$tax,seq(0,1,0.25),na.rm=TRUE),include.lowest = T )) # Does not work
+#Reconsiderations of limits bc mean and 3rd quantile are the same
+#aux<-factor(cut(df$tax,breaks=c(0, 125, 145, quants),include.lowest = T ))
+#summary(aux)
+#tapply(df$tax,aux,median)
+df$f.tax<-factor(cut(df$tax, breaks=c(quants$min,quants$q1, quants$q2, quants$q3+10, quants$max), include.lowest=T))
+levels(df$f.tax)<-paste("f.tax-",levels(df$f.tax),sep="")
+table(df$f.tax,useNA="always")
+```
+
+## 4. Variable mileage
+```{r}
+df$f.mileage<-factor(cut(df$mileage,breaks=c(quantile(df$mileage,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+levels(df$f.mileage)<-paste("f.mileage-",levels(df$f.mileage),sep="")
+table(df$f.mileage,useNA="always")
+```
+
+## 4. Variable mpg
+```{r}
+df$f.mpg<-factor(cut(df$mpg,breaks=c(quantile(df$mpg,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+levels(df$f.mpg)<-paste("f.mpg-",levels(df$f.mpg),sep="")
+table(df$f.mpg,useNA="always")
+```
+
+## 5. Variable year
+```{r}
+df$f.year<-factor(cut(df$year,breaks=c(quantile(df$year,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+levels(df$f.year)<-paste("f.mpg-",levels(df$f.year),sep="")
+table(df$f.year,useNA="always")
 ```
 
 #Create variable adding the total number missing values, outliers and errors.
