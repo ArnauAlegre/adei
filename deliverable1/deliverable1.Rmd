@@ -70,14 +70,10 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-<<<<<<< Updated upstream
-setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
-=======
 setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
->>>>>>> Stashed changes
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
-requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr")
+requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot")
 missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
 if(length(missingPackages)) install.packages(missingPackages)
 lapply(requiredPackages, require, character.only = TRUE)
@@ -90,32 +86,10 @@ if(!is.null(dev.list())) dev.off()  # Clear plots
 rm(list=ls())                       # Clean workspace
 ```
 
-Combine the dataset of Audi, BMW, Volkswagen and Mercedes into one.
-```{r}
-{r}
-# Lecture of DataFrames:
-df1 <- read.table("audi.csv",header=T, sep=",")
-df1$manufacturer <- "Audi"
-df2 <- read.table("bmw.csv",header=T, sep=",")
-df2$manufacturer <- "BMW"
-df3 <- read.table("merc.csv",header=T, sep=",")
-df3$manufacturer <- "Mercedes"
-df4 <- read.table("vw.csv",header=T, sep=",")
-df4$manufacturer <- "VW"
-
-# Union by row:
-df <- rbind(df1,df2,df3,df4)
-#write.csv(df,"C:/Users/Arnau/Documents/GitHub/adei/deliverable1/sample_5000.csv", row.names = TRUE, na="NA")
-```
-
 
 Data: used_car_dataset.csv
 ```{r}
-<<<<<<< Updated upstream
-filepath<-"C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1"
-=======
 filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
->>>>>>> Stashed changes
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -135,12 +109,6 @@ head(df)
 df<-df[sam,]
 rownames(df) <- 1:nrow(df) #rename row id's from 1 to nrows
 summary(df)
-```
-
-```
-#Save the image
-#{r echo = T, results = 'hide'}
-#save.image("T5000_raw.RData")
 ```
 
 
@@ -339,7 +307,7 @@ jouts[which(colnames(df)=="tax")]<-length(llout)
 df$tax[llout, "tax"] <- NA
 
 summary(df$tax)
-Boxplot(df$tax)
+boxplot(df$tax)
 
 quantile(df$tax,seq(0,1,0.25),na.rm=TRUE)
 quantile(df$tax,seq(0,1,0.1),na.rm=TRUE)
@@ -412,6 +380,32 @@ table(df$Payment_type)
 
 df$Trip_type <- factor(df$Trip_type,levels = c("1", "2"), labels=c("Street-hail", "Dispatch"))
 table(df$Trip_type)
+```
+
+#Create variable adding the total number missing values, outliers and errors.
+Describe these variables, to which other variables exist higher associations.
+
+##Compute the correlation with all other variables. Rank these variables according the correlation
+```{r}
+df$inconsistencies <- imis+iouts+ierrs
+vars_quanti <- c(2,3,5,7,8,9,12)
+res <- cor(df[,vars_quanti])
+round(res, 2)
+corrplot(res)
+```
+
+##Mean of missing/outliers/errors per groups
+Compute for every group of individuals (group of age, etc, …) the mean of missing/outliers/errors values. Rank the groups according the computed mean.
+```{r}
+df_aux$vw_inconsists <- mean(df$inconsistencies[ which(df$manufacturer=="VW")])
+df_aux$audi_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Audi")])
+df_aux$bmw_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="BMW")])
+df_aux$merc_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Mercedes")])
+df_aux <- data.frame("Modelo"=c("Audi", "VM", "Mercedes", "BMW"))
+df_aux$incons <- c(vw_inconsists, audi_inconsis, bmw_inconsis, merc_inconsis)
+df_aux2<-df_aux[order(df_aux$incons),]
+barplot(df_aux2$incons, names.arg = df_aux2$Modelo)
+
 ```
 
 
