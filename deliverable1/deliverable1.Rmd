@@ -461,16 +461,73 @@ corrplot(res)
 ##Mean of missing/outliers/errors per groups
 Compute for every group of individuals (group of age, etc, …) the mean of missing/outliers/errors values. Rank the groups according the computed mean.
 ```{r}
-df_aux <- data.frame("Modelo"=c("Audi", "VM", "Mercedes", "BMW"))
-df_aux$vw_inconsists <- mean(df$inconsistencies[ which(df$manufacturer=="VW")])
-df_aux$audi_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Audi")])
-df_aux$bmw_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="BMW")])
-df_aux$merc_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Mercedes")])
-df_aux$incons <- c(vw_inconsists, audi_inconsis, bmw_inconsis, merc_inconsis)
-df_aux2<-df_aux[order(df_aux$incons),]
-barplot(df_aux2$incons, names.arg = df_aux2$Modelo)
+dfInconsistencias <- data.frame("Modelo"=c("Audi", "VM", "Mercedes", "BMW"))
+vw_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="VW")])
+audi_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Audi")])
+bmw_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="BMW")])
+merc_inconsis <- mean(df$inconsistencies[ which(df$manufacturer=="Mercedes")])
+dfInconsistencias$incons <- c(vw_inconsis, audi_inconsis, bmw_inconsis, merc_inconsis)
+dfInconsistencias<-dfInconsistencias[order(dfInconsistencias$incons),]
+barplot(dfInconsistencias$incons, names.arg = dfInconsistencias$Modelo)
 
 ```
 
+##Multivariant outliers
+We don't use the variable tax for the searching of multivariant outliers because 
+it is a column linearly dependent with other column.
+```{r}
+res.mout <- Moutlier( df[ ,c(2,3,5,8)], quantile = 0.995) 
+par(mfrow = c(1,1))
+plot( res.mout$md, res.mout$rd )
+abline( h=res.mout$cutoff, lwd=2, col="red") 
+abline( v=res.mout$cutoff, lwd=2, col="red")
+llmout <- which( ( res.mout$md > res.mout$cutoff ) & (res.mout$rd > res.mout$cutoff) )
+llmout
+df$mout <- 0 
+df$mout[ llmout ] <- 1 
+df$mout <- factor( df$mout, labels = c("MvOut.No","MvOut.Yes"))
+res.mout$cutoff
+res.cat <- catdes(df[,c(2:8,10,18:19)],10)
+res.cat$category
+#The cars with Automatic transmission are overrepresented in multivariant outliers. And also there is a high percentage of automatic cars that are outliers (6.1%) in comparison to cars with other types of transmission. There is a relative low amount of semiautomatic cars that are outliers (20.81%) compared to the global amount of semiautomatic cars (38.45%).
 
+summary(df[df$mout=="MvOut.Yes",])
+summary(df)
+#The cars that are outliers tend to be more expensive, have more mileage, have to pay more tax. The manufacturers Mercedes and VW have a low percentage of outliers cars.
+```
+
+## Profiling
+
+```{r}
+##############################################################################
+#                                    Profiling 
+#                           Package FactoMineR will be used
+##############################################################################
+library(FactoMineR)
+summary(df$price)
+# The "variable to describe cannot have NA ###################################
+res.condes<-condes(df,3)
+
+res.condes$quanti  # Global association to numeric variables
+#The response variable has a strong correlation with the following variables: year, tax, mileage and mpg.
+scatterplot(df$year,df$price)
+scatterplot(df$tax,df$price)
+scatterplot(df$mileage,df$price)
+scatterplot(df$mpg,df$price)
+res.condes$quali # Global association to factors
+# P-values indicate whether the correlation is statistically different from 0 or not. p-values < 0.05 reject the null hypothesis (correlation statistically equal to 0). 
+#The response variable has a strong correlation with the following variables: model, engineSize and transmission, according to the R2 stadistic value.
+
+res.condes$category  # Partial association to significative levels in factors
+#With this output we can see from different categories the mean difference in price compared to the mean price of the dataset
+#The cars that have low mpg are more expensive.
+#We can also see that the cars with an engine size = 4 has an estimate of +19400$
+#We can also see that the cars with an engine size = 2.9 has an estimate of +19179$
+#We can also see that the cars with an model=BMW- 7 Series has an estimate of +18054$
+#We can also see that the cars with an model=Audi- Q8 has an estimate of +25943$
+#We can also see that the cars with an engine size = 5.2 has an estimate of +32960$
+#We can also see that the cars with an model=VW- Up has an estimate of -17472$
+#We can also see that the cars with an engine size = 1.2 has an estimate of -15682$
+
+```
 
