@@ -3,13 +3,13 @@ title: "Deliverable 1"
 author: "Pere Arnau Alegre & Andrés Jiménez González"
 date: \today
 output:
-  word_document:
-    toc: no
-    toc_depth: '4'
   pdf_document:
     number_sections: yes
     toc: yes
     toc_depth: 4
+  word_document:
+    toc: no
+    toc_depth: '4'
   html_document:
     toc: no
     toc_depth: '4'
@@ -25,8 +25,10 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 # Data description
-* Description http://www.nyc.gov/html/tlc/html/about/trip_record_data.shtml
-* Data Dictionary - SHL Trip Data -This data dictionary describes SHL trip data
+* Description https://www.kaggle.com/datasets/adityadesai13/used-car-dataset-ford-and-mercedes
+* Data Dictionary - Scraped data of used cars, which have been separated
+into files corresponding to each car manufacturer (only Mercedes, BMW,
+Volkswagen and Audi cars are to be considered).
 
 ## Variables
 * Model
@@ -70,7 +72,8 @@ knitr::opts_chunk$set(echo = TRUE)
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
+#setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
+setwd("C:/Users/Arnau/Desktop")
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot")
@@ -89,26 +92,13 @@ rm(list=ls())                       # Clean workspace
 
 Data: used_car_dataset.csv
 ```{r}
-filepath<-"C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1"
+#filepath<-"C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1"
+filepath<-"C:/Users/Arnau/Desktop/"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
 # names(df)     # Displays the names of the sample variables
 # summary(df)   
-```
-
-Select your 5000 register sample (random sample)
-```{r echo = T, results = 'hide'}
-set.seed(123456)
-sam<-as.vector(sort(sample(1:nrow(df),5000)))
-```
-
-Verification and storage of the sample
-```{r}
-head(df)
-df<-df[sam,]
-rownames(df) <- 1:nrow(df) #rename row id's from 1 to nrows
-summary(df)
 ```
 
 
@@ -153,8 +143,8 @@ We will also try to factorize each variable to make it easier to understand the 
 jmis<-rep(0,2*ncol(df))  # columns - variables
 
 mis1<-countNA(df)
-mis1$mis_ind # Number of missings for the current set of cars (observations)
-mis1$mis_col # Number of missings for the current set of variables
+#mis1$mis_ind   # Number of missings for the current set of cars (observations)
+#mis1$mis_col   # Number of missings for the current set of variables
 
 jouts<-rep(0,ncol(df))  # columns - variables
 
@@ -342,14 +332,14 @@ summary(res.impca$completeObs)
 
 # Check one by one:
 par(mfrow=c(1,2))
-hist(df$year)
-hist(res.impca$completeObs[,"year"])
-hist(df$mileage)
-hist(res.impca$completeObs[,"mileage"])
-hist(df$tax)
-hist(res.impca$completeObs[,"tax"])
-hist(df$mpg)
-hist(res.impca$completeObs[,"mpg"])
+hist(df$year, main="Hist of year before imputation")
+hist(res.impca$completeObs[,"year"], main="Hist of year after imputation")
+hist(df$mileage, main="Hist of mileage before imputation")
+hist(res.impca$completeObs[,"mileage"], main="Hist of mileage after imputation")
+hist(df$tax, main="Hist of tax before imputation")
+hist(res.impca$completeObs[,"tax"], main="Hist of tax after imputation")
+hist(df$mpg, main="Hist of mpg before imputation")
+hist(res.impca$completeObs[,"mpg"], main="Hist of mpg after imputation")
 
 # Once you have validated the process:
 df[,vars_con ]<-res.impca$completeObs
@@ -364,12 +354,12 @@ summary(df[,vars_dis])
 res.immca<-imputeMCA(df[,vars_dis],ncp=4)
 summary(res.immca$completeObs)
 # Check one by one (we only have enginesize, transmission & fuelType)
-barplot(table(df$engineSize))
-barplot(table(res.immca$completeObs[,"engineSize"]))
-barplot(table(df$transmission))
-barplot(table(res.immca$completeObs[,"transmission"]))
-barplot(table(df$fuelType))
-barplot(table(res.immca$completeObs[,"fuelType"]))
+barplot(table(df$engineSize), main="Barplot of engineSize before imputation")
+barplot(table(res.immca$completeObs[,"engineSize"]), main="Barplot of engineSize after imputation")
+barplot(table(df$transmission), main="Barplot of transmission before imputation")
+barplot(table(res.immca$completeObs[,"transmission"]), main="Barplot of transmission after imputation")
+barplot(table(df$fuelType), main="Barplot of fuelType before imputation")
+barplot(table(res.immca$completeObs[,"fuelType"]), main="Barplot of fuelType after imputation")
 
 
 # Once you have validated the process
@@ -393,10 +383,10 @@ df$Audi<-factor(df$Audi,labels=c("No","Yes"))
 summary(df$Audi)
 # Pie
 piepercent<-round(100*(table(df$Audi)/nrow(df)),dig=2); piepercent
-pie(table(df$Audi),col=heat.colors(2),labels=paste(piepercent,"%"))
-legend("topright", levels(df$Audi), cex = 0.8, fill = heat.colors(2))
+pie(table(df$Audi),col=terrain.colors(2),labels=paste(piepercent,"%"), main="Piechart of Audi cars")
+legend("topright", levels(df$Audi), cex = 0.8, fill = terrain.colors(2))
 # Bar Chart
-barplot(table(df$Audi),main="Barplot Binary Outcome - Factor",col=c("red","green"))
+barplot(table(df$Audi),main="Barplot Binary Outcome - Factor",col=terrain.colors(2))
 ```
 
 ## 2. New variable: yearsAferSell
@@ -404,7 +394,7 @@ A discrete numeric variable to indicate how many years have passed from when the
 
 ```{r}
 df$years_after_sell <-  2022 - df$year
-boxplot(df$years_after_sell, main="Boxplot of years after sell", col="darkslateblue")
+boxplot(df$years_after_sell, main="Boxplot of years after sell", col="cyan3", ylim=c(0,15))
 #There are no extreme outliers in the variable because we treated outliers in the variable year.
 summary(df$years_after_sell)
 ```
@@ -472,7 +462,7 @@ barplot(dfInconsistencias$incons, names.arg = dfInconsistencias$Modelo)
 
 ```
 
-##Multivariant outliers
+#Multivariant outliers
 We don't use the variable tax for the searching of multivariant outliers because 
 it is a column linearly dependent with other column.
 ```{r}
@@ -496,17 +486,13 @@ summary(df)
 #The cars that are outliers tend to be more expensive, have more mileage, have to pay more tax. The manufacturers Mercedes and VW have a low percentage of outliers cars.
 ```
 
-## Profiling
+# Profiling with FactoMineR
 
+## Profiling of the numeric target variable "price"
 ```{r}
-##############################################################################
-#                                    Profiling 
-#                           Package FactoMineR will be used
-##############################################################################
-library(FactoMineR)
 summary(df$price)
 # The "variable to describe cannot have NA ###################################
-res.condes<-condes(df,3)
+res.condes<-condes(df,3, proba=0.01)
 
 res.condes$quanti  # Global association to numeric variables
 #The response variable has a strong correlation with the following variables: year, tax, mileage and mpg.
@@ -530,4 +516,37 @@ res.condes$category  # Partial association to significative levels in factors
 #We can also see that the cars with an engine size = 1.2 has an estimate of -15682$
 
 ```
+
+## Profiling of the categorical target variable "Audi"
+
+```{r}
+summary(df$Audi)
+# The "variable to describe cannot have NA
+res.catdes<-catdes(df[,-c(1)],11, proba = 0.01)
+#We exclude the model of the car from the analysis because it doesn't bring useful information.
+res.catdes$quanti.var  # Global association to numeric variables
+```
+Miles per galon (mpg), price and mileage are statistically significant variables as they have a p-value less than 0.01. Despite that fact, the effect size associated with them is quite small as they have a small Eta2 value. This means that these variables are not quite significant at predicting if a car is an Audi or not.
+
+```{r}
+res.catdes$quanti # Partial association of numeric variables to levels of outcome factor
+```
+With this output we can see that Audi cars have a little more price and mileage than the global average and have fewer mpg than the global average. The opposite is true for cars that are not Audi.
+
+```{r}
+#mean(df$tax[which(df$Audi=="No")])-mean(df$tax[which(df$Audi=="Yes")])
+res.catdes$test.chi2 # Global association to factors
+res.catdes$category  # Partial association to significative levels in factors
+```
+With this final categorical analysis we can see that:
+For cars that are not Audi:
+    *We have smaller engine sizes overall. 
+    *The percentage of cars with diesel and hybrid engines is slightly higher than the global mean.
+    *We have more cars with a lower mileage.
+    
+For cars that are Audi:
+    *The percentage of engines with a size of 1.4 is higher than the global mean (16.9  vs 6.9).
+    *The percentage of Audis with a manual transmission is higher than the global mean (41 vs 35).
+
+
 
