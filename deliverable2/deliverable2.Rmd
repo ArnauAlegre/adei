@@ -1,0 +1,457 @@
+---
+title: "Deliverable 1"
+author: "Pere Arnau Alegre & Andrés Jiménez González"
+date: \today
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: no
+    toc_depth: '4'
+  html_document:
+    toc: no
+    toc_depth: '4'
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
+fontsize: 18pt
+subtitle: Data Processing, Description, Validation and Profiling
+classoption: a4paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(formatR)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=70),tidy=TRUE)
+```
+
+# Data description
+* Description https://www.kaggle.com/datasets/adityadesai13/used-car-dataset-ford-and-mercedes
+* Data Dictionary - Scraped data of used cars, which have been separated
+into files corresponding to each car manufacturer (only Mercedes, BMW,
+Volkswagen and Audi cars are to be considered).
+
+## Variables
+* Model
+  * A string indicating the model of the car.
+* Year	
+  * A discrete numeric variable to indicate the year the car was sold
+* Price
+  * Continuous variable indicating the price at which the car was sold
+* Transmission
+  * Categorical variable that indicates the type of transmission of the car
+  * Values:
+    * Automatic
+    * Manual
+    * Semi-Automatic
+    * Other
+* Mileage
+  * A discrete numeric variable to indicate the number of miles the car had when it was sold
+* Fuel Type
+  * Categorical variable that indicates the type of fuel of the car
+  * Values:
+    * Diesel
+    * Electric
+    * Hybrid
+    * Petrol
+    * Other
+* Tax
+  * A discrete numeric variable to indicate the road tax of the vehicle.
+* MPG
+  *  Continuous variable indicating the fuel consumption of the car
+* Engine Size
+  * Continuous variable indicating the size of the engine
+* Manufacturer
+  * Categorical variable that indicates the manufacturer brand of the car.
+  * Values:
+    * Mercedes
+    * Audi
+    * Volkswagen
+    * BMW
+
+
+# Loading of Required Packages for the deliverable
+We load the necessary packages and set the working directory
+```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
+setwd("C:/Users/TOREROS-II/Documents/GitHub/adei/deliverable2")
+#setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
+# Load Required Packages
+options(contrasts=c("contr.treatment","contr.treatment"))
+requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot")
+missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
+if(length(missingPackages)) install.packages(missingPackages)
+lapply(requiredPackages, require, character.only = TRUE)
+```  
+
+## Select a sample of 5000 records
+From the proposed database, we need to select a sample of 5000 records randomly so we can start analyzing our data.
+```{r echo = T, results = 'hide'}
+if(!is.null(dev.list())) dev.off()  # Clear plots
+rm(list=ls())                       # Clean workspace
+```
+
+
+Data: used_car_dataset.csv
+```{r}
+filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/"
+df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
+
+# dim(df)       # Displays the sample size
+# names(df)     # Displays the names of the sample variables
+# summary(df)   
+```
+
+tinytex::install_tinytex()
+## Some useful functions
+```{r}
+calcQ <- function(x) { # Function to calculate the different quartiles
+  s.x <- summary(x)
+  iqr<-s.x[5]-s.x[2]
+  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3], 
+       q3=s.x[5], max=s.x[6], mouts=s.x[5]+1.5*iqr, souts=s.x[5]+3*iqr ) 
+}
+countNA <- function(x) { # Function to count the NA values
+  mis_x <- NULL
+  for (j in 1:ncol(x)) {mis_x[j] <- sum(is.na(x[,j])) }
+  mis_x <- as.data.frame(mis_x)
+  rownames(mis_x) <- names(x)
+  mis_i <- rep(0,nrow(x))
+  for (j in 1:ncol(x)) {mis_i <- mis_i + as.numeric(is.na(x[,j])) }
+  list(mis_col=mis_x,mis_ind=mis_i) 
+}
+countX <- function(x,X) { # Function to count a specific number of appearences
+  n_x <- NULL
+  for (j in 1:ncol(x)) {n_x[j] <- sum(x[,j]==X) }
+  n_x <- as.data.frame(n_x)
+  rownames(n_x) <- names(x)
+  nx_i <- rep(0,nrow(x))
+  for (j in 1:ncol(x)) {nx_i <- nx_i + as.numeric(x[,j]==X) }
+  list(nx_col=n_x,nx_ind=nx_i) 
+}
+```
+
+# Univariate Description and Preprocessing
+
+## Variable initialization of missings, outliers and errors for columns
+```{r}
+jmis<-rep(0,2*ncol(df))  # columns - variables
+
+mis1<-countNA(df)
+#mis1$mis_ind   # Number of missings for the current set of cars (observations)
+#mis1$mis_col   # Number of missings for the current set of variables
+
+jouts<-rep(0,ncol(df))  # columns - variables
+
+jerrs<-rep(0,ncol(df))  # columns - variables
+```
+
+## Initialization of the response variable Price
+We know that the price should be positive, so we will treat as errors the prices <= 0. We don't count the errors by rows for the variable price because we erase that rows.
+```{r}
+sel<-which(df$price <= 0)
+jerrs[which(colnames(df)=="price")] <- length(sel)
+
+df <- df[which(df$price > 0), ]
+
+var_out<-calcQ(df$price)
+
+llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
+jouts[which(colnames(df)=="price")]<-length(llout_price)
+df <- df[-llout_price, ]
+```
+
+## Variable initialization of missings, outliers and errors for rows
+Initialization of counts for missings, outliers and errors. All numerical variables have to be checked before.
+```{r}
+imis<-rep(0,nrow(df))  # rows - cars
+
+iouts<-rep(0,nrow(df))  # rows - cars
+
+ierrs<-rep(0,nrow(df))  # rows - cars
+```
+
+## Preprocessing of Qualitative/Categorical & Numerical variables
+**Description**: We need to do an analysis of all the variables to be able to identify missings, errors and outliers. 
+We will also try to factorize each variable to make it easier to understand the sample.
+
+### Model
+This variable indicates the model of the car.
+```{r}
+df$model<-factor(paste0(df$manufacturer,"-",df$model))
+```
+
+### Year
+A discrete numeric variable to indicate the year the car was sold, ranging from 1970 to 2020
+
+```{r}
+var_out<-calcQ(df$year)
+
+llout<-which((df$year <= var_out$souti))
+iouts[llout] <- iouts[llout]+1
+jouts[which(colnames(df)=="year")]<-length(llout)
+
+df[llout,"year"] <- NA
+```
+
+### Price
+In orther to better analyze the price of the cars and to group them, we will create a categorical variable representing the price of the car.
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+df$price_type <- df$price
+df$price_type[which(df$price >= var_out$min & df$price_type < var_out$q1)] <- "super cheap"
+df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "cheap"
+df$price_type[which(df$price >= var_out$q2 & df$price_type < var_out$q3)] <- "expensive"
+df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- "very expensive"
+df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
+```
+
+
+### Transmission
+```{r}
+df$transmission <- factor( df$transmission )
+df$transmission <- factor( df$transmission, levels = c("Manual","Semi-Auto","Automatic"),labels = paste0("f.Trans-",c("Manual","SemiAuto","Automatic")))
+```
+
+### Mileage
+```{r}
+var_out<-calcQ(df$mileage)
+llout_mil<-which((df$mileage<var_out$souti)|(df$mileage>var_out$souts))
+iouts[llout_mil]<-iouts[llout_mil]+1
+df[llout_mil,"mileage"] <- NA
+```
+
+
+### fuelType
+```{r}
+df$fuelType <- factor(df$fuelType)
+df$fuelType <- factor( df$fuelType, levels = c("Diesel","Petrol","Hybrid"), labels = paste0("f.Fuel-",c("Diesel","Petrol","Hybrid")))
+```
+
+
+### Tax
+```{r}
+var_out<-calcQ(df$tax)
+
+llout<-which((df$tax <= var_out$souti & df$tax >= var_out$souts))
+iouts[llout] <- iouts[llout]+1
+jouts[which(colnames(df)=="tax")]<-length(llout)
+df[llout, "tax"] <- NA
+```
+
+### MPG
+```{r}
+var_out<-calcQ(df$mpg)
+llout_mpg<-which((df$mpg<var_out$souti)|(df$mpg>var_out$souts))
+iouts[llout_mpg]<-iouts[llout_mpg]+1
+jouts[which(colnames(df)=="mpg")]<-length(llout)
+df[llout_mpg,"mpg"] <- NA
+```
+
+
+### EngineSyze
+```{r}
+df$engineSize <- factor(df$engineSize)
+
+sel<-which(df$engineSize==0)
+ierrs[sel]<-ierrs[sel]+1 #Vector of errors per individual update
+
+df[sel,"engineSize"]<-NA
+```
+
+# Imputation
+What we do with imputation is be able to eliminate all those values that may be missings, outliers or errors to turn them into values that can be realistic within our sample.
+
+## Imputation of numeric variables
+
+```{r}
+library(missMDA)
+vars_con<-c("year", "mileage", "tax", "mpg")
+vars_res<-c("price", "Audi")
+
+res.impca<-imputePCA(df[,vars_con],ncp=3)
+
+df[,vars_con ]<-res.impca$completeObs
+```
+
+## Imputation of qualitative variables
+
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+vars_dis<-c("model","transmission","fuelType","engineSize","manufacturer")
+res.immca<-imputeMCA(df[,vars_dis],ncp=4)
+
+df[ , vars_dis ]<-res.immca$completeObs
+```
+
+
+# Creation and discretization of new variables
+
+## New variable: Audi/Not Audi
+```{r, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+df$Audi<-ifelse(df$manufacturer == "Audi",1,0)
+df$Audi<-factor(df$Audi,labels=c("No","Yes"))
+```
+
+## New variable: yearsAferSell
+A discrete numeric variable to indicate how many years have passed from when the car was sold since 2022.
+
+```{r}
+df$years_after_sell <-  2022 - df$year
+```
+
+## Discretization of the variable Tax
+```{r}
+quants <- calcQ(df$tax)
+
+df$f.tax<-factor(cut(df$tax, breaks=c(quants$min,quants$q1, quants$q2, quants$q3+10, quants$max), include.lowest=T))
+```
+
+## Discretization of the variable mileage
+```{r}
+df$f.mileage<-factor(cut(df$mileage,breaks=c(quantile(df$mileage,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+```
+
+## Discretization of the variable mpg
+```{r}
+df$f.mpg<-factor(cut(df$mpg,breaks=c(quantile(df$mpg,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+```
+
+## Discretization of the variable year
+```{r}
+df$f.year<-factor(cut(df$year,breaks=c(quantile(df$year,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+```
+
+# Create variable adding the total number missing values, outliers and errors.
+Describe these variables, to which other variables exist higher associations.
+
+## Compute the correlation with all other variables. Rank these variables according the correlation
+```{r}
+df$inconsistencies <- imis+iouts+ierrs
+```
+
+# Multivariant outliers
+We don't use the variable tax for the searching of multivariant outliers because 
+it is a column linearly dependent with other column.
+```{r}
+res.mout <- Moutlier( df[ ,c(2,3,5,8)], quantile = 0.995) 
+par(mfrow = c(1,1))
+plot( res.mout$md, res.mout$rd )
+abline( h=res.mout$cutoff, lwd=2, col="red") 
+abline( v=res.mout$cutoff, lwd=2, col="red")
+llmout <- which( ( res.mout$md > res.mout$cutoff ) & (res.mout$rd > res.mout$cutoff) )
+llmout
+df$mout <- 0 
+df$mout[ llmout ] <- 1 
+df$mout <- factor( df$mout, labels = c("MvOut.No","MvOut.Yes"))
+res.mout$cutoff
+```
+
+# Principal Component Analysis
+## Calculate total variance explained by each principal component
+```{r}
+vars_con <- c("mileage", "tax", "mpg", "years_after_sell", "inconsistencies")
+vars_dis <- c("transmission", "fuelType", "engineSize", "manufacturer")
+vars_res <- c("price", "Audi")
+res.pca<-PCA(df[,vars_con], ind.sup = llmout)
+summary(res.pca)
+```
+
+According to the Kaiser criteria we should keep 2 dimensions, because it says that we should keep that dimensions with variance > 1.
+
+## Elbow
+```{r}
+fviz_screeplot(
+  res.pca, 
+  addlabels=TRUE, 
+  ylim=c(0,50), 
+  barfill="darkslateblue", 
+  barcolor="darkslateblue",
+  linecolor = "skyblue1"
+)
+
+```
+
+As we have a not-so-ideal scree plot curve, we have to choose between a couple ways of deciding how many dimensions keep:
+Kaiser rule: pick PCs with eigenvalues of at least 1.
+Proportion of variance plot: the selected PCs should be able to describe at least 80% of the variance.
+
+If we follow Kaiser rule we should keep only 2 dimensions, but considering that the 3rd dimensions variance is 0.965 (which is very close to 1) and that with only 2 dimensions we don't describe at least 80% of the variance, we have decided to keep 3 dimensions.
+
+## Interpreting the axes
+Variables point of view coordinates, quality of representation, contribution of the variables
+### Axe 1
+```{r}
+res.dimdes <- dimdesc( res.pca, axes = 1:3, proba = 0.01)
+res.dimdes$Dim.1
+```
+
+Dimension 1 has a great direct correlation with variables years_after_sell, mileage and mpg;
+and a great inverse correlation with variable tax.
+
+### Axe 2
+```{r}
+res.dimdes$Dim.2
+```
+
+Dimension 2 has a great direct correlation with variable inconsistencies;
+and a low inverse correlation with variables tax, years_after_sell and mileage
+
+### Axe 3
+```{r}
+res.dimdes$Dim.3
+```
+
+Dimension 3 has a good direct correlation with variable inconsistencies and tax;
+and a good inverse correlation with variables mpg.
+
+```{r}
+res.pca<-PCA(df[,vars_con], ind.sup = llmout)
+```
+
+## Detection of multivariant outliers and influent data
+```{r}
+fviz_pca_ind(res.pca, col.ind="contrib", geom = "point") +
+scale_color_gradient2(low="darkslateblue", mid="white",
+                      high="red", midpoint=0.40)
+```
+
+We can see that there are some individuals that are too contributive. So now, let s try to understand them better with extreme individuals.
+
+### Extreme individuals
+#### In dimension 1:
+```{r}
+rang<-order(res.pca$ind$coord[,1])
+contrib.extremes<-c(row.names(df)[rang[1]], row.names(df)[rang[length(rang)]])
+contrib.extremes<-c(row.names(df)[rang[1:10]], row.names(df)[rang[(length(rang)-10):length(rang)]])
+fviz_pca_ind(res.pca, select.ind = list(names=contrib.extremes))
+```
+
+We can now have a look at them:
+```{r}
+df[which(row.names(df) %in% row.names(df)[rang[length(rang)]]), 1:19]
+df[which(row.names(df) %in% row.names(df)[rang[1]]),1:19]
+```
+
+#### In dimension 2:
+```{r}
+rang<-order(res.pca$ind$coord[,2])
+contrib.extremes<-c(row.names(df)[rang[1]], row.names(df)[rang[length(rang)]])
+contrib.extremes<-c(row.names(df)[rang[1:10]], row.names(df)[rang[(length(rang)-10):length(rang)]])
+fviz_pca_ind(res.pca, select.ind = list(names=contrib.extremes))
+```
+
+We can now have a look at them:
+```{r}
+df[which(row.names(df) %in% row.names(df)[rang[length(rang)]]), 1:28]
+df[which(row.names(df) %in% row.names(df)[rang[1]]),1:28]
+```
+
+## PCA taking into account also supplementary variables
+Our supplementary variables are Price and Audi.
+```{r}
+res.pca<-PCA(df[,c(vars_res,vars_con)], ind.sup = llmout, quanti.sup = 1, quali.sup = 2)
+```
+
+The variable price is strongly negatively related with the first dimension axis. This means that it has a great correlation with variable tax and inverse correlation with variables mpg, mileage and years_after_sell. 
+
+The variable Audi has very similar centroids
