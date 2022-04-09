@@ -93,7 +93,6 @@ rm(list=ls())                       # Clean workspace
 ```
 
 
-Data: used_car_dataset.csv
 ```{r}
 #filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/"
 filepath <- "C:/Users/Arnau/Desktop/adei/"
@@ -104,7 +103,7 @@ df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 # summary(df)   
 ```
 
-tinytex::install_tinytex()
+
 ## Some useful functions
 ```{r}
 calcQ <- function(x) { # Function to calculate the different quartiles
@@ -135,43 +134,22 @@ countX <- function(x,X) { # Function to count a specific number of appearences
 
 # Univariate Description and Preprocessing
 
-## Variable initialization of missings, outliers and errors for columns
+## Variable initialization of missings, outliers and errors for columns & rows
 ```{r}
 jmis<-rep(0,2*ncol(df))  # columns - variables
+imis<-rep(0,nrow(df))  # rows - cars
 
 mis1<-countNA(df)
 #mis1$mis_ind   # Number of missings for the current set of cars (observations)
 #mis1$mis_col   # Number of missings for the current set of variables
 
 jouts<-rep(0,ncol(df))  # columns - variables
-
-jerrs<-rep(0,ncol(df))  # columns - variables
-```
-
-## Initialization of the response variable Price
-We know that the price should be positive, so we will treat as errors the prices <= 0. We don't count the errors by rows for the variable price because we erase that rows.
-```{r}
-sel<-which(df$price <= 0)
-jerrs[which(colnames(df)=="price")] <- length(sel)
-
-df <- df[which(df$price > 0), ]
-
-var_out<-calcQ(df$price)
-
-llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
-jouts[which(colnames(df)=="price")]<-length(llout_price)
-df <- df[-llout_price, ]
-```
-
-## Variable initialization of missings, outliers and errors for rows
-Initialization of counts for missings, outliers and errors. All numerical variables have to be checked before.
-```{r}
-imis<-rep(0,nrow(df))  # rows - cars
-
 iouts<-rep(0,nrow(df))  # rows - cars
 
+jerrs<-rep(0,ncol(df))  # columns - variables
 ierrs<-rep(0,nrow(df))  # rows - cars
 ```
+
 
 ## Preprocessing of Qualitative/Categorical & Numerical variables
 **Description**: We need to do an analysis of all the variables to be able to identify missings, errors and outliers. 
@@ -205,6 +183,22 @@ df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "ch
 df$price_type[which(df$price >= var_out$q2 & df$price_type < var_out$q3)] <- "expensive"
 df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- "very expensive"
 df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
+
+```
+
+Detection of outliers.
+```{r}
+sel<-which(df$price <= 0)
+jerrs[which(colnames(df)=="price")] <- length(sel)
+
+df[which(df$price < 0), ] <- NA
+
+var_out<-calcQ(df$price)
+
+llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
+jouts[which(colnames(df)=="price")]<-length(llout_price)
+iouts[llout_price] <- iouts[llout_price]+1
+#df <- df[-llout_price, ]
 ```
 
 
@@ -459,11 +453,6 @@ The variable Audi has very similar centroids
 
 
 # Kmeans Classification
-
-```{r}
-res.pca<-PCA(df[,c(vars_res,vars_con)], quanti.sup = 1, quali.sup = 2, graph = FALSE)
-#we don't include the multivatiant obserrvations as supplementary individuals because we want to compute kmeans with all observations.
-```
 We determined that we had to keep 3 dimensions of the PCA to maintain an inertia above 80%. Therefore we will have to use 3 dimensions for the computation of the Kmeans.
 
 ## Optimal number of clusters
@@ -479,14 +468,15 @@ res.km<-kmeans(res.pca$ind$coord[,1:3],5)
 res.km$betweenss/res.km$totss   #calculate total retained inertia
 table(res.km$cluster)
 ff<-factor(res.km$cluster)
-plot(res.pca$ind$coord[,1:2],col=ff, pch=19, main= "K-Means - 4 cluster - First Factorial Plane")
+plot(res.pca$ind$coord[,1:3],col=ff, pch=19, main= "K-Means - 4 cluster - First Factorial Plane")
 legend("bottomleft", title="K-Means", legend=levels(ff), col=1:5, pch=19, cex=0.8)
 ```
 
 ## Profiling of clusters
 ```{r}
+df$kmeans_clust <- 6
 df$kmeans_clust <- res.km$cluster
-
+# observations that are multivariant outliers will be put in cluster 6
 ```
 
 
