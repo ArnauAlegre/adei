@@ -379,6 +379,10 @@ Using the elbow method, we determined that the optimal number of clusters to com
 ```{r}
 #dis<-dist(res.pca$ind$coord[,1:2])
 res.km<-kmeans(res.pca$ind$coord[,1:3],5)
+while(res.km$betweenss/res.km$totss < 0.75){
+  res.km<-kmeans(res.pca$ind$coord[,1:3],5)
+}
+#force kmeans to generate good custers
 res.km$betweenss/res.km$totss   #calculate total retained inertia
 table(res.km$cluster)
 ff<-factor(res.km$cluster)
