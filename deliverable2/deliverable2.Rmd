@@ -94,8 +94,8 @@ rm(list=ls())                       # Clean workspace
 
 
 ```{r}
-#filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/"
-filepath <- "C:/Users/Arnau/Desktop/adei/"
+filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/"
+#filepath <- "C:/Users/Arnau/Desktop/adei/"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -358,7 +358,7 @@ df[which(row.names(df) %in% row.names(df)[rang[1]]),1:28]
 ## PCA taking into account also supplementary variables
 Our supplementary variables are Price and Audi.
 ```{r}
-res.pca<-PCA(df[,c(vars_res,vars_con)], ind.sup = llmout, quanti.sup = 1, quali.sup = 2)
+res.pca<-PCA(df[,c(vars_res,vars_con, vars_dis)], ind.sup = llmout, quanti.sup = 1, quali.sup = c(2,8:11))
 ```
 
 The variable price is strongly negatively related with the first dimension axis. This means that it has a great correlation with variable tax and inverse correlation with variables mpg, mileage and years_after_sell. 
@@ -387,7 +387,7 @@ legend("bottomleft", title="K-Means", legend=levels(ff), col=1:5, pch=19, cex=0.
 ```
 
 ### Gain in inertia (in %)
-After executing kmenas we get a retained inertia of the 78.88756%
+After executing kmeans we get a retained inertia of the 78.88756%
 ```{r}
 100*(res.km$betweenss/res.km$totss)
 ```
@@ -440,6 +440,81 @@ We now proceed to see the quantitative variables that characterizes the clusters
 ```{r}
 res.cat$quanti.var
 res.cat$quanti
+```
+
+
+We want to know now which variables are associated with the quantitative variables.
+
+* Cluster 1
+  + We can see that almost every variable is over the overall mean. We can see that **Total_amount** and **traveltime** are around 6 units over the overall mean. **Fare_amount** is around 5 units over the overall mean, **espeed** is around 3 units over the overall mean and **Trip_distance** and **tlenkm** are around 2 units over the overall mean.
+* Cluster 2
+  + 
+* Cluster 3
+  +  
+* Cluster 4
+  + 
+* Cluster 5
+  + 
+
+## Kmeans computation and visualization
+```{r}
+#dis<-dist(res.pca$ind$coord[,1:2])
+res.hcpc <- HCPC(res.pca,nb.clust = -1, proba = 0.01)
+100*(res.hcpc$call$t$within[1]-res.hcpc$call$t$within[1:10])/(res.hcpc$call$t$within[1])   #calculate total retained inertia
+# Individuals facor map
+fviz_cluster(res.hcpc, geom = "point", main = "Factor map")
+```
+
+### Gain in inertia (in %)
+After executing HCPC we get a retained inertia of the 63.88594%
+```{r}
+100*(res.hcpc$call$t$within[1]-res.hcpc$call$t$within[4])/(res.hcpc$call$t$within[1])
+```
+
+## Profiling of clusters
+```{r}
+df$HCPC_clust <-0
+k=4
+df[-llmout,"HCPC_clust"]<-res.hcpc$data.clust$clust
+df[llmout,"HCPC_clust"]<-k+1
+df$HCPC_clust <- factor(df$HCPC_clust)
+# observations that are multivariant outliers will be put in cluster 6
+barplot(table(df$HCPC_clust),col="darkslateblue",border="darkslateblue",main="[HCPC]#observations/cluster")
+```
+
+We proceed to explain the data obtained.
+
+### Description of clusters by categorical variables
+
+```{r}
+res.hcpc$desc.var$test.chi2
+```
+
+We can see the intensity of the variables, in our case the variables that affect more to the clustering are **fuelType**, **engineSize**,**transmission** and **manufacturer**  because are those ones with the smallest p.value.
+We excluded from this test the factor variables that resulted from the grouping of the quantiles of the numerical variables because we will analyze these numerical variables later on. This way we reduce redundant information.
+
+Next, we want to see for each cluster which are the categories that characterize them.
+
+```{r}
+res.hcpc$desc.var$category
+```
+
+* Cluster 1
+  + The first thing we can notice is that cluster 1 contains the 60.052632% of all the cars with semi-automatic transmission. The 49.84894260% of its cars use petrol while the global percenatge of cars that use petrol is 41.4598842%, that means that is overrepresented. 
+  
+* Cluster 2
+  + In cluster 2 we can see that The 65.28497409% of its cars use diesel while the global percenatge of cars that use petrol is 57.2373863%, that means that is overrepresented. The manufacturer BMW as well as cars with automatic transmission are overrepresented.
+  
+* Cluster 3
+  + Cluster 3 contains 74.6% of all hybrid cars from the data set. On average 1.3% of the cars use hybrid fuel, but in cluster 3 hybrid cars are overrepresented (57.32%). Automatic cars are also overrepresented in the class with a 57.3% in comparison to a 25.8% global mean. BMW cars are also overrepresented in cluster 3 with a 41.46% in comparison to a 21.2% global mean.
+
+* Cluster 4
+  + Cluster 4 contains 40.2% of all manual cars from the data set. On average 34.8% of the cars are manual, but in cluster 4 manual cars are overrepresented (62.3%). Automatic cars are also overrepresented in the class with a 57.3% in comparison to a 25.8% global mean. VW cars are overrepresented where on the other hand, Mercedes and BMW cars are underrepresented.
+
+We now proceed to see the quantitative variables that characterizes the clusters. We can see in the output from res.cat$quanti.var all the numeric variables that characterize the clusters. From a more detailed look, variables **year**, **mileage**, **tax** and **inconsistencies** maintain a strong relation with the cluster number.
+```{r}
+res.hcpc$desc.var$quanti.var
+res.hcpc$desc.var$quanti
 ```
 
 

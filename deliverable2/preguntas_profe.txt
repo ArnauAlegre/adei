@@ -1,1 +1,2 @@
-Incluir ind.sup al computar Kmeans?
+- Incluir ind.sup al computar Kmeans?
+- Al hacer la descripción de los cluster HCPC hemos de hacerlo a partir de un catdes o de la variable res.hcpc?
