@@ -148,23 +148,9 @@ iouts<-rep(0,nrow(df))  # rows - cars
 
 jerrs<-rep(0,ncol(df))  # columns - variables
 ierrs<-rep(0,nrow(df))  # rows - cars
-```
 
-
-## Preprocessing of Qualitative/Categorical & Numerical variables
-**Description**: We need to do an analysis of all the variables to be able to identify missings, errors and outliers. 
-We will also try to factorize each variable to make it easier to understand the sample.
-
-### Model
-This variable indicates the model of the car.
-```{r}
 df$model<-factor(paste0(df$manufacturer,"-",df$model))
-```
 
-### Year
-A discrete numeric variable to indicate the year the car was sold, ranging from 1970 to 2020
-
-```{r}
 var_out<-calcQ(df$year)
 
 llout<-which((df$year <= var_out$souti))
@@ -172,22 +158,16 @@ iouts[llout] <- iouts[llout]+1
 jouts[which(colnames(df)=="year")]<-length(llout)
 
 df[llout,"year"] <- NA
-```
 
-### Price
-In orther to better analyze the price of the cars and to group them, we will create a categorical variable representing the price of the car.
-```{r, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
 df$price_type <- df$price
+var_out<-calcQ(df$price)
 df$price_type[which(df$price >= var_out$min & df$price_type < var_out$q1)] <- "super cheap"
 df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "cheap"
 df$price_type[which(df$price >= var_out$q2 & df$price_type < var_out$q3)] <- "expensive"
 df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- "very expensive"
 df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
 
-```
 
-Detection of outliers.
-```{r}
 sel<-which(df$price <= 0)
 jerrs[which(colnames(df)=="price")] <- length(sel)
 
@@ -198,68 +178,38 @@ var_out<-calcQ(df$price)
 llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
 jouts[which(colnames(df)=="price")]<-length(llout_price)
 iouts[llout_price] <- iouts[llout_price]+1
-#df <- df[-llout_price, ]
-```
 
-
-### Transmission
-```{r}
 df$transmission <- factor( df$transmission )
 df$transmission <- factor( df$transmission, levels = c("Manual","Semi-Auto","Automatic"),labels = paste0("f.Trans-",c("Manual","SemiAuto","Automatic")))
-```
 
-### Mileage
-```{r}
 var_out<-calcQ(df$mileage)
 llout_mil<-which((df$mileage<var_out$souti)|(df$mileage>var_out$souts))
 iouts[llout_mil]<-iouts[llout_mil]+1
 df[llout_mil,"mileage"] <- NA
-```
 
-
-### fuelType
-```{r}
 df$fuelType <- factor(df$fuelType)
 df$fuelType <- factor( df$fuelType, levels = c("Diesel","Petrol","Hybrid"), labels = paste0("f.Fuel-",c("Diesel","Petrol","Hybrid")))
-```
 
-
-### Tax
-```{r}
 var_out<-calcQ(df$tax)
 
 llout<-which((df$tax <= var_out$souti & df$tax >= var_out$souts))
 iouts[llout] <- iouts[llout]+1
 jouts[which(colnames(df)=="tax")]<-length(llout)
 df[llout, "tax"] <- NA
-```
 
-### MPG
-```{r}
 var_out<-calcQ(df$mpg)
 llout_mpg<-which((df$mpg<var_out$souti)|(df$mpg>var_out$souts))
 iouts[llout_mpg]<-iouts[llout_mpg]+1
 jouts[which(colnames(df)=="mpg")]<-length(llout)
 df[llout_mpg,"mpg"] <- NA
-```
 
-
-### EngineSyze
-```{r}
 df$engineSize <- factor(df$engineSize)
 
 sel<-which(df$engineSize==0)
 ierrs[sel]<-ierrs[sel]+1 #Vector of errors per individual update
 
 df[sel,"engineSize"]<-NA
-```
 
-# Imputation
-What we do with imputation is be able to eliminate all those values that may be missings, outliers or errors to turn them into values that can be realistic within our sample.
-
-## Imputation of numeric variables
-
-```{r}
 library(missMDA)
 vars_con<-c("year", "mileage", "tax", "mpg")
 vars_res<-c("price", "Audi")
@@ -267,67 +217,31 @@ vars_res<-c("price", "Audi")
 res.impca<-imputePCA(df[,vars_con],ncp=3)
 
 df[,vars_con ]<-res.impca$completeObs
-```
+df$year<-round(df$year, digits=0)
+df$mpg<-round(df$mpg, digits=2)
 
-## Imputation of qualitative variables
-
-```{r, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
 vars_dis<-c("model","transmission","fuelType","engineSize","manufacturer")
 res.immca<-imputeMCA(df[,vars_dis],ncp=4)
-
 df[ , vars_dis ]<-res.immca$completeObs
-```
 
 
-# Creation and discretization of new variables
-
-## New variable: Audi/Not Audi
-```{r, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
 df$Audi<-ifelse(df$manufacturer == "Audi",1,0)
 df$Audi<-factor(df$Audi,labels=c("No","Yes"))
-```
 
-## New variable: yearsAferSell
-A discrete numeric variable to indicate how many years have passed from when the car was sold since 2022.
-
-```{r}
 df$years_after_sell <-  2022 - df$year
-```
 
-## Discretization of the variable Tax
-```{r}
 quants <- calcQ(df$tax)
 
 df$f.tax<-factor(cut(df$tax, breaks=c(quants$min,quants$q1, quants$q2, quants$q3+10, quants$max), include.lowest=T))
-```
 
-## Discretization of the variable mileage
-```{r}
 df$f.mileage<-factor(cut(df$mileage,breaks=c(quantile(df$mileage,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
-```
 
-## Discretization of the variable mpg
-```{r}
 df$f.mpg<-factor(cut(df$mpg,breaks=c(quantile(df$mpg,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
-```
 
-## Discretization of the variable year
-```{r}
 df$f.year<-factor(cut(df$year,breaks=c(quantile(df$year,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
-```
 
-# Create variable adding the total number missing values, outliers and errors.
-Describe these variables, to which other variables exist higher associations.
-
-## Compute the correlation with all other variables. Rank these variables according the correlation
-```{r}
 df$inconsistencies <- imis+iouts+ierrs
-```
 
-# Multivariant outliers
-We don't use the variable tax for the searching of multivariant outliers because 
-it is a column linearly dependent with other column.
-```{r}
 res.mout <- Moutlier( df[ ,c(2,3,5,8)], quantile = 0.995) 
 par(mfrow = c(1,1))
 plot( res.mout$md, res.mout$rd )
@@ -472,15 +386,74 @@ plot(res.pca$ind$coord[,1:3],col=ff, pch=19, main= "K-Means - 4 cluster - First 
 legend("bottomleft", title="K-Means", legend=levels(ff), col=1:5, pch=19, cex=0.8)
 ```
 
+### Gain in inertia (in %)
+After executing kmenas we get a retained inertia of the 78.88756%
+```{r}
+100*(res.km$betweenss/res.km$totss)
+```
+
 ## Profiling of clusters
 ```{r}
-df$kmeans_clust <- 6
-df$kmeans_clust <- res.km$cluster
+df$kmeans_clust <-0
+k=5
+df[-llmout,"kmeans_clust"]<-res.km$cluster
+df[llmout,"kmeans_clust"]<-k+1
+df$kmeans_clust <- factor(df$kmeans_clust)
 # observations that are multivariant outliers will be put in cluster 6
+barplot(table(df$kmeans_clust),col="darkslateblue",border="darkslateblue",main="[k-means]#observations/cluster")
+
+res.cat <- catdes(df[c(2:12, 18:20)], num.var=14, proba=0.01)
+```
+
+We proceed to explain the data obtained.
+
+### Description of clusters by categorical variables
+
+```{r}
+res.cat$test.chi2
+```
+
+We start with the description of the categorical variables that characterize the clusters, so in this output we do
+not have dimensions because it is the total association. We can see the intensity of the variables, in our case the variables that affect more to the clustering are **fuelType**, **engineSyze**,**priceType** and **mout**  because are the one with the smallest p.value.
+We excluded from this test the factor variables that resulted from the grouping of the quantiles of the numerical variables because we will analyze these numerical variables later on. This way we reduce redundant information.
+
+Next, we want to see for each cluster which are the categories that characterize them.
+
+```{r}
+res.cat$category
+```
+
+* Cluster 1
+  + The first thing we can notice is that cluster 1 contains 71.21% of hybrid fuel cars in the sample. On average 1.32% of the cars use hybrid fuel, but in cluster 1 hybrid cars are overrepresented (57.32%). Diesel cars represent 57.2% of the sample, but 0.87% of them are included in Cluster 1. The same can be seen for cars that run on petrol. Cars with an engineSize of 1 represent 7.48% of the sample, but 0% of them are included in Cluster 1. Finally, on average 26.4% of the cars use an automatic transmission, but in cluster 1 automatics cars are overrepresented (57.32%) and manual and semi-automatic cars are underrepresented.
+  
+* Cluster 2
+  + 
+* Cluster 3
+  + 
+* Cluster 4
+  + 
+* Cluster 5
+  + 
+
+
+We now proceed to see the quantitative variables that characterizes the clusters. We can see in the output from res.cat$quanti.var all the numeric variables that characterize the clusters. From a more detailed look, variables **year**, **mileage**, **tax** and **inconsistencies** maintain a strong relation with the cluster number.
+```{r}
+res.cat$quanti.var
+res.cat$quanti
 ```
 
 
+We want to know now which variables are associated with the quantitative variables.
 
-
+* Cluster 1
+  + We can see that almost every variable is over the overall mean. We can see that **Total_amount** and **traveltime** are around 6 units over the overall mean. **Fare_amount** is around 5 units over the overall mean, **espeed** is around 3 units over the overall mean and **Trip_distance** and **tlenkm** are around 2 units over the overall mean.
+* Cluster 2
+  + 
+* Cluster 3
+  +  
+* Cluster 4
+  + 
+* Cluster 5
+  + 
 
 
