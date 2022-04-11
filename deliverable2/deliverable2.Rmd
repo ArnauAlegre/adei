@@ -94,8 +94,8 @@ rm(list=ls())                       # Clean workspace
 
 
 ```{r}
-filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/"
-#filepath <- "C:/Users/Arnau/Desktop/adei/"
+#filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/"
+filepath <- "C:/Users/Arnau/Desktop/adei/"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -159,14 +159,14 @@ jouts[which(colnames(df)=="year")]<-length(llout)
 
 df[llout,"year"] <- NA
 
-df$price_type <- df$price
-var_out<-calcQ(df$price)
-df$price_type[which(df$price >= var_out$min & df$price_type < var_out$q1)] <- "super cheap"
-df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "cheap"
-df$price_type[which(df$price >= var_out$q2 & df$price_type < var_out$q3)] <- "expensive"
-df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- "very expensive"
-df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
-
+#df$price_type <- df$price
+#var_out<-calcQ(df$price)
+#df$price_type[which(df$price >= var_out$min & df$price_type < var_out$q1)] <- "super cheap"
+#df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "cheap"
+#df$price_type[which(df$price >= var_out$q2 & df$price_type < var_out$q3)] <- "expensive"
+#df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- "very expensive"
+#df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
+df$f.price<-factor(cut(df$price/1000,breaks=c(quantile(df$price/1000,seq(0,1,0.1),na.rm=TRUE)),include.lowest = T ))
 
 sel<-which(df$price <= 0)
 jerrs[which(colnames(df)=="price")] <- length(sel)
@@ -515,24 +515,86 @@ res.hcpc$desc.var$category
 * Cluster 4
   + Cluster 4 contains 40.2% of all manual cars from the data set. On average 34.8% of the cars are manual, but in cluster 4 manual cars are overrepresented (62.3%). Automatic cars are also overrepresented in the class with a 57.3% in comparison to a 25.8% global mean. VW cars are overrepresented where on the other hand, Mercedes and BMW cars are underrepresented.
 
-We now proceed to see the quantitative variables that characterizes the clusters. We can see in the output from res.cat$quanti.var all the numeric variables that characterize the clusters. From a more detailed look, variables **year**, **mileage**, **tax** and **inconsistencies** maintain a strong relation with the cluster number.
+We now proceed to see the quantitative variables that characterizes the clusters. We can see in the output from **res.hcpc$desc.var$quanti.var** all the numeric variables that characterize the clusters. From a more detailed look, variables **years_after_sell**, **mileage**, **tax** and **inconsistencies** maintain a strong relation with the cluster number.
 ```{r}
 res.hcpc$desc.var$quanti.var
 res.hcpc$desc.var$quanti
 ```
 
-
 We want to know now which variables are associated with the quantitative variables.
 
 * Cluster 1
-  + We can see that almost every variable is over the overall mean. We can see that **Total_amount** and **traveltime** are around 6 units over the overall mean. **Fare_amount** is around 5 units over the overall mean, **espeed** is around 3 units over the overall mean and **Trip_distance** and **tlenkm** are around 2 units over the overall mean.
+  + Cluster 1 groups cars with higher prices than the overall mean. The mean price in this first cluster is 27024 while the overall mean sits at 21154. It also contains cars that pay higher taxes and cars that have higher fuel consumption (low mpg). Finally, the cluster contains cars with a very low mileage (7200 on avg) compared to the global mean of 22000 and the cars where sold recently, as they average year after sell is 3 for the cluster and 4.7 for the global mean.
+
 * Cluster 2
-  + 
+  +Cluster 2 contains cars that where sold earlier than other cars, as they average year after sell is 6 for the cluster and 4.7 for the global mean. It also contains cars with a higher mileage and higher tax. Finally it contains cheaper cars than the global mean, 17850 dollars for the cluster vs 21100 for the overall mean.
+  
 * Cluster 3
-  +  
+  + In this cluster we can see that the variable mileage is higher than the overall mean while the taxes are lower. This can indicate us that they are old or very used cars. The most important trait for this cluster is that it groups observations that only have inconsistencies. The price is not highlighted so it must be arround the global mean. 
+  
 * Cluster 4
-  + 
-* Cluster 5
-  + 
+  + Cars in cluster 4 have the biggest mileage mean, being it 37241.21087. Its cars spend also less fuel than the overall mean. It is very important to highlight that the cars in cluster 4 are very cheap and have very low taxes.
+
+# CA analysis
+CA analysis for your data should contain your factor version of the numeric target (previous) in K= 7 (maximum 10) levels and 2 factors.
+
+## CA: f.price vs f.tax
+
+We start the CA with the creation of a contingency table and a Pearson's chi2 test to test for independence.
+```{r}
+tt<-table(df[,c("f.price","f.tax")])
+tt
+chisq.test(tt) #to see if variables are independents. H0: Variables are independent
+```
+We get a p-value lower than 0.05 so we can reject the H0.
+
+We are now going to take a look to the simple correspondences. 
+```{r}
+res.ca <- CA(tt)
+fviz_eig(res.ca) #Same outputs as PCA
+summary(res.ca,dig=2)
+```
+According to the Kaiser criteria, we have to consider the first dimension. In this correpsondence analysis almost all the variance is explained in the 1st dimension (96.74%).
+
+```{r}
+plot( res.ca, cex=0.8, graph.type = "classic" )
+lines( res.ca$row$coord[,1], res.ca$row$coord[,2], col="blue", lwd = 2 )
+lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
+legend("bottomleft", title="Lines", legend=c("Tax", "Price"), col=c("red","blue"), pch=19, cex=0.8)
+```
+
+
+## CA: f.price vs fuelType
+
+We start the CA with the creation of a contingency table and a Pearson's chi2 test to test for independence.
+```{r}
+tt<-table(df[,c("f.price","fuelType")])
+tt
+chisq.test(tt) #to see if variables are independents. H0: Variables are independent
+```
+We get a p-value lower than 0.05 so we can reject the H0.
+
+We are now going to take a look to the simple correspondences. 
+```{r}
+res.ca <- CA(tt)
+fviz_eig(res.ca) #Same outputs as PCA
+summary(res.ca,dig=2)
+```
+According to the Kaiser criteria, we have to consider the first dimension. In this correspondence analysis almost all the variance is explained in the 1st dimension (97.1%).
+
+```{r}
+plot( res.ca, cex=0.8, graph.type = "classic" )
+lines( res.ca$row$coord[,1], res.ca$row$coord[,2], col="blue", lwd = 2 )
+lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
+legend("bottomleft", title="Lines", legend=c("FuelType", "Price"), col=c("red","blue"), pch=19, cex=0.8)
+```
+
+
+
+
+
+
+
+
 
 
