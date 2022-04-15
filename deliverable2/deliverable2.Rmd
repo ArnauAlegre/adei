@@ -546,13 +546,13 @@ tt<-table(df[,c("f.price","f.tax")])
 tt
 chisq.test(tt) #to see if variables are independents. H0: Variables are independent
 ```
-We get a p-value lower than 0.05 so we can reject the H0.
+We get a p-value lower than 0.05 so we can reject the H0. In our sample, the row and the column variables are statistically significantly associated.
 
 We are now going to take a look to the simple correspondences. 
 ```{r}
 res.ca <- CA(tt)
-fviz_eig(res.ca) #Same outputs as PCA
 summary(res.ca,dig=2)
+fviz_eig(res.ca) #Visualize the eigenvalues
 ```
 According to the Kaiser criteria, we have to consider the first dimension. In this correpsondence analysis almost all the variance is explained in the 1st dimension (96.74%).
 
@@ -562,6 +562,7 @@ lines( res.ca$row$coord[,1], res.ca$row$coord[,2], col="blue", lwd = 2 )
 lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
 legend("bottomleft", title="Lines", legend=c("Tax", "Price"), col=c("red","blue"), pch=19, cex=0.8)
 ```
+This graph shows that with mildly high taxes comes cars with prices that are average or high. With cheap cars comes very low taxes. Finally very high taxes come with cars that are priced between 17400 and 19400 dollars. These cars would fall into the avg/cheap priced ones.
 
 
 ## CA: f.price vs fuelType
@@ -572,7 +573,7 @@ tt<-table(df[,c("f.price","fuelType")])
 tt
 chisq.test(tt) #to see if variables are independents. H0: Variables are independent
 ```
-We get a p-value lower than 0.05 so we can reject the H0.
+We get a p-value lower than 0.05 so we can reject the H0. In our sample, the row and the column variables are statistically significantly associated.
 
 We are now going to take a look to the simple correspondences. 
 ```{r}
@@ -589,9 +590,24 @@ lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
 legend("bottomleft", title="Lines", legend=c("FuelType", "Price"), col=c("red","blue"), pch=19, cex=0.8)
 ```
 
+### Contribution of rows to the dimensions
+```{r}
+res.ca$row$contrib
+fviz_contrib(res.ca, choice = "row", axes = 1:2, top = 10)
+```
+The row variables with the larger value, contribute the most to the definition of the dimensions.
+Rows that contribute the most to Dim.1 are the most important in explaining the variability in the data set. In our case, the most important row categories for price are [1.25,10.3] & (15.3,17.4].
+Rows that do not contribute much to any dimension or that contribute to the last dimensions (Dim 2) are less important. In our case these are (13,15.3] & (19.4,21.5] 
 
+The most important (or, contributing) row points can be highlighted on the scatter plot as follow:
+```{r}
+fviz_ca_row(res.ca, col.row = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE)
+```
+The scatter plot gives an idea of what pole of the dimensions the row categories are actually contributing to. It is evident that the row category (15.3,17.4] has an important contribution to the positive pole of the first dimension, while the category [1.25, 10.3] has a major contribution to the negative pole of the first dimension.
 
-
+In other words, dimension 1 is mainly defined by the opposition of(15.3,17.4] (positive pole), and [1.25, 10.3] (negative pole).
 
 
 
