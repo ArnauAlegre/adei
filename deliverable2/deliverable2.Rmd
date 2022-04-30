@@ -160,7 +160,7 @@ jouts[which(colnames(df)=="year")]<-length(llout)
 df[llout,"year"] <- NA
 
 
-df$f.price<-factor(cut(df$price/1000,breaks=c(quantile(df$price/1000,seq(0,1,0.2),na.rm=TRUE)), labels=c("super cheap", "cheap", "expensive", "very expensive", "extremly expensive"),include.lowest = T ))
+df$f.price<-factor(cut(df$price/1000,breaks=c(quantile(df$price/1000,seq(0,1,0.2),na.rm=TRUE)), labels=c("super cheap", "cheap", "expensive", "very expensive", "extremely expensive"),include.lowest = T ))
 
 sel<-which(df$price <= 0)
 jerrs[which(colnames(df)=="price")] <- length(sel)
@@ -573,7 +573,7 @@ res.ca <- CA(tt)
 summary(res.ca,dig=2)
 fviz_eig(res.ca) #Visualize the eigenvalues
 ```
-According to the Kaiser criteria, we have to consider the first dimension. In this correpsondence analysis almost all the variance is explained in the 1st dimension (96.74%).
+According to the Kaiser criteria, we have to consider the first dimension. In this correspondence analysis almost all the variance is explained in the 1st dimension (96.74%).
 
 ```{r}
 plot( res.ca, cex=0.8, graph.type = "classic" )
@@ -581,7 +581,26 @@ lines( res.ca$row$coord[,1], res.ca$row$coord[,2], col="blue", lwd = 2 )
 lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
 legend("bottomleft", title="Lines", legend=c("Tax", "Price"), col=c("red","blue"), pch=19, cex=0.8)
 ```
-This graph shows that with mildly high taxes comes cars with prices that are average or high. With cheap cars comes very low taxes. Finally very high taxes come with cars that are priced between 17400 and 19400 dollars. These cars would fall into the avg/cheap priced ones.
+This graph shows that with mildly high taxes come cars with prices that are average or high. With cheap cars come very low taxes. Very high taxes come with cars that are between expensive and cheap. With extremely expensive cars we get mildly high taxes. 
+
+### Contribution of rows to the dimensions
+```{r}
+res.ca$row$contrib
+fviz_contrib(res.ca, choice = "row", axes = 1:2, top = 10)
+```
+The row variables with the larger value, contribute the most to the definition of the dimensions.
+Rows that contribute the most to Dim.1 are the most important in explaining the variability in the data set. In our case, the most important row categories for price are super cheap & extremely expensive cars.
+Rows that do not contribute much to any dimension or that contribute to the last dimensions (Dim 2) are less important. In our case these are cheap & expensive cars.
+
+The most important (or, contributing) row points can be highlighted on the scatter plot as follow:
+```{r}
+fviz_ca_row(res.ca, col.row = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE)
+```
+The scatter plot gives an idea of what pole of the dimensions the row categories are actually contributing to. It is evident that the row category "super cheap" has an important contribution to the positive pole of the first dimension, while the category "extremely expensive" has a major contribution to the negative pole of the first dimension.
+
+In other words, dimension 1 is mainly defined by the opposition of super cheap cars (positive pole), and extremely expensive cars (negative pole).
 
 
 ## CA: f.price vs fuelType
@@ -608,6 +627,8 @@ lines( res.ca$row$coord[,1], res.ca$row$coord[,2], col="blue", lwd = 2 )
 lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
 legend("bottomleft", title="Lines", legend=c("FuelType", "Price"), col=c("red","blue"), pch=19, cex=0.8)
 ```
+Cars that use petrol fuel are priced in an undetermined matter, because its point in the CA is placed between super cheap and very expensive cars. The same happens to diesel cars because they are placed between cheap and extremely expensive cars. Finally hybrid cars appear to be very far from all other cars. In conclusion, this graph does not provide very conclusive information to correlate the price of the cars with its type of fuel.
+
 
 ### Contribution of rows to the dimensions
 ```{r}
@@ -615,8 +636,8 @@ res.ca$row$contrib
 fviz_contrib(res.ca, choice = "row", axes = 1:2, top = 10)
 ```
 The row variables with the larger value, contribute the most to the definition of the dimensions.
-Rows that contribute the most to Dim.1 are the most important in explaining the variability in the data set. In our case, the most important row categories for price are [1.25,10.3] & (15.3,17.4].
-Rows that do not contribute much to any dimension or that contribute to the last dimensions (Dim 2) are less important. In our case these are (13,15.3] & (19.4,21.5] 
+Rows that contribute the most to Dim.1 are the most important in explaining the variability in the data set. In our case, the most important row categories for price are super cheap cars & cheap cars.
+Rows that do not contribute much to any dimension or that contribute to the last dimensions (Dim 2) are less important. In our case these are expensive & very expensive cars.
 
 The most important (or, contributing) row points can be highlighted on the scatter plot as follow:
 ```{r}
@@ -624,10 +645,138 @@ fviz_ca_row(res.ca, col.row = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE)
 ```
-The scatter plot gives an idea of what pole of the dimensions the row categories are actually contributing to. It is evident that the row category (15.3,17.4] has an important contribution to the positive pole of the first dimension, while the category [1.25, 10.3] has a major contribution to the negative pole of the first dimension.
+The scatter plot gives an idea of what pole of the dimensions the row categories are actually contributing to. It is evident that the row category "cheap" has an important contribution to the positive pole of the first dimension, while the category "super cheap" has a major contribution to the negative pole of the first dimension.
 
-In other words, dimension 1 is mainly defined by the opposition of(15.3,17.4] (positive pole), and [1.25, 10.3] (negative pole).
+In other words, dimension 1 is mainly defined by the opposition of cheap cars (positive pole), and super cheap cars (negative pole).
 
+
+# MCA Analysis
+
+
+```{r}
+par(mfrow=c(1,1))
+llvout<-which(df$mout=="MvOut.Yes");length(llvout) #Multivariate outliers
+vars_dis <- c("model","transmission","fuelType","engineSize","manufacturer","f.price","f.tax","f.mileage","f.mpg","f.year")
+summary( df[-llvout,c("f.price","Audi",vars_dis,"price") ])
+res.mca<-MCA(df[,c(vars_dis[c(2,5:10)]) ] )
+summary(res.mca,nbelements=50, nbind=0)
+```
+
+## Eigenvalues and dominant axes analysis
+
+**How many axes we have to consider for next Hierarchical Classification stage?**
+
+```{r}
+mean(res.mca$eig[,1])
+head(get_eigenvalue(res.mca), 10)
+```
+We consider, according to the generalized Kaiser theorem, all those dimensions such that their eigenvalue is greater than the mean. We see that the average gives us 0.1428571. Therefore, we will take up to dimension 8, which represents the 60.88943% of the sample.
+
+We can also visualize the percentages of inertia explained by each MCA dimensions:
+```{r}
+fviz_screeplot(
+  res.mca, 
+  addlabels=TRUE, 
+  ylim=c(0,20), 
+  barfill="darkslateblue", 
+  barcolor="darkslateblue",
+  linecolor="skyblue1"
+)
+```
+
+## Individuals point of view
+Are they any individuals "too contributive"?
+```{r}
+fviz_mca_ind(
+  res.mca, 
+  geom=c("point"),
+  col.ind="contrib", 
+  gradient.cols=c("darkslateblue", "red")
+)
+```
+We can see that individuals located in the periphery are the most contributive. 
+
+
+### Groups of individuals
+```{r}
+fviz_mca_ind(res.mca, label="none", habillage="transmission")
+```
+Automatic cars are located on the positive side of the 2nd dimension where manual cars are on the nagative side of the 2nd dimension.
+
+```{r}
+fviz_mca_ind(res.mca, label="none", habillage="manufacturer")
+```
+We cannot see any significant difference in the position of observations.
+
+```{r}
+fviz_mca_ind(res.mca, label="none", habillage="f.price")
+```
+Individuals are distributed across the 1st dimension: from extremely expensive cars on the negative side to super cheap on the positive side.
+
+```{r}
+fviz_mca_ind(res.mca, label="none", habillage="f.tax")
+```
+We can only appreciate that observations with very high taxes are located on the positive side of the 2nd dimension.
+
+```{r}
+fviz_mca_ind(res.mca, label="none", habillage="f.mileage")
+```
+Individuals are distributed across the 1st dimension: from very low mileage on the negative side to very high mileage on the positive side.
+
+```{r}
+fviz_mca_ind(res.mca, label="none", habillage="f.mpg")
+```
+We cannot see any significant difference in the position of observations.
+
+
+```{r}
+fviz_mca_ind(res.mca, label="none", habillage="f.year")
+```
+Individuals are distributed across the 1st dimension: from an early time of selling (high year) on the negative side to very old year of selling (low year) on the positive side.
+
+
+```{r}
+fviz_ellipses(res.mca, c("f.price", "f.year"),
+              geom = "point")
+```
+
+
+
+```{r}
+# Individual Representation
+plot.MCA(res.mca,choix=c("ind"),cex=0.8)
+plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),cex=0.8)
+
+# Representation of categories
+plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(1,2), graph.type = "classic", cex = 0.5)
+lines(res.mca$var$coord[1:3,1],res.mca$var$coord[1:3,2],lwd=1,col="black") # Transmission
+lines(res.mca$quali.sup$coord[1:4,1],res.mca$quali.sup$coord[1:4,2],lwd=2,col="darkgreen")
+names(res.mca)
+res.mca$var
+plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(3,4))
+plot.MCA(res.mca,choix=c("var"),axes=c(3,4))
+
+# Use modern ggplot facilities
+names(res.mca)
+fviz_eig(res.mca)
+fviz_cos2(res.mca, choice = "var", axes = 1:2)+theme_bw()
+fviz_contrib(res.mca, choice = "var", axes = 1:2)+theme_bw()
+fviz_contrib(res.mca, choice = "var", axes = 1:2)+
+   theme(text = element_text(size = 7.5),
+         axis.title = element_text(size = 5),
+         axis.text = element_text(size = 5)
+         )
+
+fviz_mca_var(res.mca, col.var="contrib",repel=TRUE,labelsize = 2)+
+    scale_color_gradient2(low="green", mid="blue", 
+    high="red", midpoint=0.75)+theme_bw()
+
+fviz_mca_biplot(res.mca, invisible="ind",axes=1:2,repel=T,labelsize = 2)+theme_bw()
+#fviz_mca_biplot(res.mca, axes=1:2,repel=TRUE,arrows=c(TRUE,FALSE))+theme_bw()
+
+
+res.mca<-MCA(df[,c(vars_dis[c(2,5:10)],"year","price", "Audi") ],quali.sup=c(4,10),quanti.sup=9 , ind.sup=llvout)
+```
 
 
 
