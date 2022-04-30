@@ -227,10 +227,13 @@ df$years_after_sell <-  2022 - df$year
 quants <- calcQ(df$tax)
 
 df$f.tax<-factor(cut(df$tax, breaks=c(quants$min,quants$q1, quants$q2, quants$q3+10, quants$max), include.lowest=T))
+df$f.tax <- paste0("f.tax-", df$f.tax)
 
 df$f.mileage<-factor(cut(df$mileage,breaks=c(quantile(df$mileage,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+df$f.mileage <- paste0("f.mil-", df$f.mileage)
 
 df$f.mpg<-factor(cut(df$mpg,breaks=c(quantile(df$mpg,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
+df$f.mpg <- paste0("f.mpg-", df$f.mpg)
 
 df$f.year<-factor(cut(df$year,breaks=c(quantile(df$year,seq(0,1,0.25),na.rm=TRUE)),include.lowest = T ))
 
@@ -661,6 +664,26 @@ summary( df[-llvout,c("f.price","Audi",vars_dis,"price") ])
 res.mca<-MCA(df[,c(vars_dis[c(2,5:10)]) ] )
 summary(res.mca,nbelements=50, nbind=0)
 ```
+
+## Interpreting the axes association to factor map
+
+### Variables representation graph (3rd graph from MCA)
+From the Variables representation map, we can see that all variables are placed on the first quadrant of the first factorial plane. From a more detailed look, the manufacturer variable has no importance on the 1st dimension but explains the 2nd dimension a bit, so cars will be scattered according to its manufacturer alongside the 2nd dimension. Transmission explains the 1st and 2nd dimension in a equal fashion, so the cars will be scattered alongside the 2 dimensions. Variables f.mpg, f.mileage, f.price, f.year and f.tax have a high representation on the positive side of the 1st dimension, so cars will be scattered alongside the 1st dimension according to these variables.
+
+### MCA factor map (1st graph from MCA)
+```{r}
+fviz_mca_var(res.mca, col.var="contrib",
+             gradient.cols =rainbow(7) , 
+             repel = TRUE, # avoid text overlapping (slow)
+             ggtheme = theme_minimal()
+             )
+?fviz_mca_var
+```
+From this graph we can conclude that, Audi, Mercedes and BMW cars do not have a strong correlation with any factor variable because they are more or less centered and far away from the center of any other variable. As BMW and Mercedes are close together we could say that they have similar qualities. The most relevant groups are:
+ * Very expensive cars with cars sold between 2017-2019 and taxes between 125-145.
+ * VW and cars sold between 2016-2017
+ * Cars sold in 2008-2016 and very high mileage.
+
 
 ## Eigenvalues and dominant axes analysis
 
