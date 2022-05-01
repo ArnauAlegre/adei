@@ -75,8 +75,8 @@ Volkswagen and Audi cars are to be considered).
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-#setwd("C:/Users/TOREROS-II/Documents/GitHub/adei/deliverable2")
-setwd("C:/Users/Arnau/Desktop/adei/deliverable2")
+setwd("C:/Users/TOREROS-II/Documents/GitHub/adei/adei/deliverable2")
+#setwd("C:/Users/Arnau/Desktop/adei/deliverable2")
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot")
@@ -94,8 +94,8 @@ rm(list=ls())                       # Clean workspace
 
 
 ```{r}
-#filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/"
-filepath <- "C:/Users/Arnau/Desktop/adei/"
+filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/adei/"
+#filepath <- "C:/Users/Arnau/Desktop/adei/"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -661,7 +661,7 @@ par(mfrow=c(1,1))
 llvout<-which(df$mout=="MvOut.Yes");length(llvout) #Multivariate outliers
 vars_dis <- c("model","transmission","fuelType","engineSize","manufacturer","f.price","f.tax","f.mileage","f.mpg","f.year")
 summary( df[-llvout,c("f.price","Audi",vars_dis,"price") ])
-res.mca<-MCA(df[,c(vars_dis[c(2,5:10)]) ] )
+res.mca<-MCA(df[,c(vars_dis[c(2,5:10)])])
 summary(res.mca,nbelements=50, nbind=0)
 ```
 
@@ -677,7 +677,6 @@ fviz_mca_var(res.mca, col.var="contrib",
              repel = TRUE, # avoid text overlapping (slow)
              ggtheme = theme_minimal()
              )
-?fviz_mca_var
 ```
 From this graph we can conclude that, Audi, Mercedes and BMW cars do not have a strong correlation with any factor variable because they are more or less centered and far away from the center of any other variable. As BMW and Mercedes are close together we could say that they have similar qualities. The most relevant groups are:
  * Very expensive cars with cars sold between 2017-2019 and taxes between 125-145.
@@ -798,10 +797,245 @@ fviz_mca_biplot(res.mca, invisible="ind",axes=1:2,repel=T,labelsize = 2)+theme_b
 #fviz_mca_biplot(res.mca, axes=1:2,repel=TRUE,arrows=c(TRUE,FALSE))+theme_bw()
 
 
-res.mca<-MCA(df[,c(vars_dis[c(2,5:10)],"year","price", "Audi") ],quali.sup=c(4,10),quanti.sup=9 , ind.sup=llvout)
+res.mca<-MCA(df[,c(vars_dis[c(2:3,5:10)],"price", "inconsistencies", "Audi")], quali.sup=c(11),quanti.sup=c(9:10), ind.sup=llvout)
 ```
 
+# MCA using multivariant
+
+```{r}
+par(mfrow=c(1,1))
+llvout<-which(df$mout=="YesMOut");length(llvout) #Multivariate outliers
+vars_dis
+c("Audi",vars_dis[3:11],"price")
+summary( df[-llvout,c("aux_price","Audi",vars_dis,"price") ])
+res.mca<-MCA(df[,c(vars_dis[c(3:4,6:11)],"price", "Audi") ],quali.sup=c(4,10),quanti.sup=9 , ind.sup=llvout)
+summary(res.mca,nbelements=50, nbind=0)
+mean(res.mca$eig[,1]) #All dimensions which eigenvalue is higher than the mean or 80% of explained variance - depending on the criteria which is used
+
+# Individual Representation
+plot.MCA(res.mca,choix=c("ind"),cex=0.8)
+plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),cex=0.8)
+
+# Representation of categories
+plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(1,2), graph.type = "classic", cex = 0.5)
+lines(res.mca$var$coord[1:3,1],res.mca$var$coord[1:3,2],lwd=1,col="black") # Transmission
+lines(res.mca$quali.sup$coord[1:4,1],res.mca$quali.sup$coord[1:4,2],lwd=2,col="darkgreen")
+names(res.mca)
+res.mca$var
+plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(3,4))
+plot.MCA(res.mca,choix=c("var"),axes=c(3,4))
+
+# Use modern ggplot facilities
+names(res.mca)
+fviz_eig(res.mca)
+fviz_cos2(res.mca, choice = "var", axes = 1:2)+theme_bw()
+fviz_contrib(res.mca, choice = "var", axes = 1:2)+theme_bw()
+fviz_contrib(res.mca, choice = "var", axes = 1:2)+
+   theme(text = element_text(size = 7.5),
+         axis.title = element_text(size = 5),
+         axis.text = element_text(size = 5)
+         )
+
+fviz_mca_var(res.mca, col.var="contrib",repel=TRUE,labelsize = 2)+
+    scale_color_gradient2(low="green", mid="blue", 
+    high="red", midpoint=0.75)+theme_bw()
+
+fviz_mca_biplot(res.mca, invisible="ind",axes=1:2,repel=T,labelsize = 2)+theme_bw()
+#fviz_mca_biplot(res.mca, axes=1:2,repel=TRUE,arrows=c(TRUE,FALSE))+theme_bw()
+```
+
+# Synthesis through HCPC: Hierarchical Clustering
+
+```{r}
+###
+### Clustering the individuals
+### Before, you have to perform a MCA with the number of axes 
+### that you have decided to take into account (indicated through ncp=)
+res.hcmc<-HCPC(res.mca,nb.clust=-1,order=TRUE)
+names(res.hcmc)
+
+names(res.hcmc$call$t)
+res.hcmc$call$t$within[1:15]
+(res.hcmc$call$t$within[1]-res.hcmc$call$t$within[1:10])/res.hcmc$call$t$within[1]
+```
+
+We consider that 6 is the better number of cluster to have because it contains the 64.2% of the variability and having more clusters doesn't increases significantly the amount of variability. 
+
+```{r}
+res.hcmc<-HCPC(res.mca,nb.clust=6,order=TRUE)
+df$claHCMC<-6
+df[row.names(res.hcmc$data.clust),"claHCMC"]<-res.hcmc$data.clust$clust
+df$claHCMC<-factor(df$claHCMC)
+summary(res.hcmc$data.clust$clust)
+table(df$claHCMC)
+
+### Interpret clustering results
+summary(res.hcmc$data.clust$clust)
+barplot(table(df$claHCMC),col="darkslateblue",border="darkslateblue",main="[HCPC]#observations/cluster")
+
+# Dendrogram
+fviz_dend(res.hcmc, show_labels = FALSE)
+# Individuals factor map
+fviz_cluster(res.hcmc, geom = "point", main = "Factor map")
+
+fviz_mca_ind(res.mca, 
+             label = "none", invisible=c("ind.sup"),# hide individual labels
+             habillage = "claHCMC", # color by groups 
+             addEllipses = TRUE, ellipse.type = "confidence",
+             ggtheme = theme_bw()) 
 
 
+```
 
+We proceed to explain the data obtained.
 
+### Description of clusters by categorical variables
+
+```{r}
+res.hcmc$desc.var$test.chi2
+```
+
+We can see the intensity of the variables, in our case the categorical variables that affect more to the clustering are **f.price**, **f.tax**, **f.mileage**, **f.mpg** and **f.year**  because are those ones with the smallest p.value.
+Next, we want to see for each cluster which are the categories that characterize them.
+
+```{r}
+res.hcmc$desc.var$category
+```
+
+* Cluster 1
+  + We can see that cars in the first cluster use to be extremely expensive and sold in the year 2020. Moreover, they have low mpg and mileage.
+  
+  mil-[1,5.99e+03]        95.7046980 25.186104
+  extremely expensive         74.2281879 19.520265
+  (2019,2020]                 40.6711409  6.389578
+  f.mpg-[20,44.8]               60.5369128 24.545079
+  f.tax-(125,145]               88.1879195 52.191894
+  
+* Cluster 2
+  + Cars in cluster 2 use to have been sold between 2018 and 2019. Very expensive cars are overrepresented.
+  
+  (2017,2019]                 96.68508287 41.521919
+  f.mil-(5.99e+03,1.71e+04] 62.43093923 25.454921
+  f.tax-(125,145]               88.32872928 52.191894
+  very expensive              44.54419890 20.698925
+  
+    
+* Cluster 3
+  + Cars in cluster 3 use to have been sold in 2017. They have a mileage close to the mean and half of them are expensive cars (they are overrepresented).
+  
+  (2016,2017]                 76.7068273 17.928040
+  f.mil-(1.71e+04,3.45e+04] 74.9665328 25.785773
+  expensive                   49.1298527 20.574855 
+  tax-(145,155]               22.3560910 10.194376
+
+* Cluster 4
+  +  Cars in cluster 4 use to have been sold between 2008 and 2016. They have higher taxes and mileage than the mean, as well as lower miles per galon. 
+  
+  f.tax-(155,580]               98.7893462  8.705542  
+  [2008,2016]                 86.6828087 34.160463
+  f.mpg-[20,44.8]               55.6900726 24.545079
+  f.mil-(3.45e+04,1.19e+05] 53.0266344 23.573201
+  
+* Cluster 5
+  +  Cars in cluster 5 use to have been sold between 2008 and 2016. They are characterized for having manual transmission and using petrol. Besides, they have low taxes and are super cheap cars, and use to be VW.
+  
+  super cheap                 83.1444759 18.879239
+  f.Trans-Manual        90.0849858 34.822167
+  VW                    78.7535411 30.500414
+  f.tax-[0,125]                 74.9291785 28.908189
+  [2008,2016]                 71.6713881 34.160463 1.431003e-108
+  f.Fuel-Petrol             74.6458924 41.459884  1.361886e-83
+  
+* Cluster 6
+  + Cars in cluster 6 use to have been sold between 2008 and 2016. They are characterized for using diesel, having high miles per galon and very high mileage. Besides, they have low taxes and cheap cars are overrepresented.
+  
+  f.tax-[0,125]                 91.1196911 28.908189
+  [2008,2016]                 90.7335907 34.160463 
+  f.mpg-(61.4,88.3]             70.0128700 23.738627
+  f.mil-(3.45e+04,1.19e+05] 68.3397683 23.573201 4.286891e-193
+  f.Fuel-Diesel             92.7927928 57.237386 2.215152e-126
+  cheap                       52.7670528 20.326716 1.797663e-111
+  
+We now proceed to see the quantitative variables that characterizes the clusters. 
+
+```{r}
+res.hcmc$desc.var$quanti.var
+```
+
+The quantitative variables that more characterize the clusters are **price** and **inconsistencies**. It has to be told that they are the only quantitative variables.
+
+```{r}
+res.hcmc$desc.var$quanti
+```
+
+* Cluster 1
+  + price 36.76681         33004.64     21154.51
+  
+* Cluster 2
+  + price           17.978281     2.493690e+04 2.115451e+04
+  inconsistencies -3.610123     6.906077e-03 1.840364e-02
+  
+* Cluster 3
+  + price -6.324677         19119.26     21154.51
+
+* Cluster 4
+  + Sin datos
+  
+* Cluster 5
+  + price -31.41406         10704.24     21154.51
+  
+* Cluster 6
+  +   inconsistencies   5.057476     4.247104e-02 1.840364e-02
+  price           -20.891475     1.458703e+04 2.115451e+04
+
+### desc.ind ###
+### C. The description of the clusters by the individuals ###
+```{r}
+res.hcmc$desc.ind$para
+```
+
+This command allow us to see for each cluster the top 5 closest individuals to the cluster center. Below each individual it's the distance between each individual and the cluster center. 
+
+We are gonna see the values of the variables of these individuals and search for a correlation with the characteristics that describes our clusters.
+
+Cluster 1:
+```{r}
+summary(df[c(3451,4851,4968,38,4127),])
+```
+
+We can see that all of them were sold in 2020. They use to have semiautomatic transmission and use diesel. Besides, they are or extremely expensive or expensive cars.
+
+Cluster 2:
+```{r}
+summary(df[c(3789,3922,4148,4156,4157),])
+```
+
+We can see that all of them were sold in 2019. They use to have automatic transmission and use diesel. It can be also highlighted that they have very low mileage, so they little-used cars. Besides, they are expensive cars and all of them are VW.
+
+Cluster 3:
+```{r}
+summary(df[c(3938,4663,184,476,4556),])
+```
+
+We can see that all of them were sold in 2017. They have automatic or semiautomatic transmission and use diesel. It can be also highlighted that they have high mileage, so they are very used cars. Besides, they are expensive cars.
+
+Cluster 4:
+```{r}
+summary(df[c(4858,4860,4863,4842,4874),])
+```
+
+We can see that all of them were sold in 2015 or 2016. They have automatic or semiautomatic transmission and use diesel. It can be also highlighted that they have high mileage, so they are very used cars. Besides, they are expensive or very expensive cars, and all of them are VW.
+
+Cluster 5:
+```{r}
+summary(df[c(3603,3874,4171,4174,689),])
+```
+
+We can see that all of them were sold in 2015 or 2016. They use to have semiautomatic transmission and use petrol. It can be also highlighted that they have very low taxes. Besides, they are super cheap cars.
+
+Cluster 6:
+```{r}
+summary(df[c(3191,2225,2320,2491,2568),])
+```
+
+We can see that all of them were sold in 2013, 2015 or 2016. They use to have semiautomatic transmission and use diesel. It can be also highlighted that they have high mileage, so they are very used cars. Besides, they use to be cheap cars, and all of them are Mercedes.
