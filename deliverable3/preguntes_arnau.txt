@@ -1,0 +1,11 @@
+Com interpretar el test de Anova i anova
+
+Que polles es aixo:
+m4 <- step( m5, k=log(nrow(df))) #step with BIC criteria
+BIC(m4,m5)
+
+llres <- which(abs(rstudent(m4))>4);length(llres)
+df[llres,]
+
+step?
+BIC?

@@ -1,0 +1,384 @@
+---
+title: "Deliverable 3"
+author: "Pere Arnau Alegre & Andrés Jiménez González"
+date: \today
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: no
+    toc_depth: '4'
+  html_document:
+    toc: no
+    toc_depth: '4'
+geometry: left=1.0cm,right=1.0cm,top=1.25cm,bottom=1.52cm
+fontsize: 10pt
+subtitle: PCA, Clustering and MCA
+classoption: a3paper
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(formatR)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=70),tidy=TRUE)
+```
+
+# Data description
+* Description https://www.kaggle.com/datasets/adityadesai13/used-car-dataset-ford-and-mercedes
+* Data Dictionary - Scraped data of used cars, which have been separated
+into files corresponding to each car manufacturer (only Mercedes, BMW,
+Volkswagen and Audi cars are to be considered).
+
+## Variables
+* Model
+  * A string indicating the model of the car.
+* Year	
+  * A discrete numeric variable to indicate the year the car was sold
+* Price
+  * Continuous variable indicating the price at which the car was sold
+* Transmission
+  * Categorical variable that indicates the type of transmission of the car
+  * Values:
+    * Automatic
+    * Manual
+    * Semi-Automatic
+    * Other
+* Mileage
+  * A discrete numeric variable to indicate the number of miles the car had when it was sold
+* Fuel Type
+  * Categorical variable that indicates the type of fuel of the car
+  * Values:
+    * Diesel
+    * Electric
+    * Hybrid
+    * Petrol
+    * Other
+* Tax
+  * A discrete numeric variable to indicate the road tax of the vehicle.
+* MPG
+  *  Continuous variable indicating the fuel consumption of the car
+* Engine Size
+  * Continuous variable indicating the size of the engine
+* Manufacturer
+  * Categorical variable that indicates the manufacturer brand of the car.
+  * Values:
+    * Mercedes
+    * Audi
+    * Volkswagen
+    * BMW
+
+
+# Loading of Required Packages for the deliverable
+We load the necessary packages and set the working directory
+```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
+#setwd("C:/Users/TOREROS-II/Documents/GitHub/adei/adei/deliverable2")
+setwd("C:/Users/Arnau/Desktop/adei/deliverable2")
+# Load Required Packages
+options(contrasts=c("contr.treatment","contr.treatment"))
+requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot", "moments")
+missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
+if(length(missingPackages)) install.packages(missingPackages)
+lapply(requiredPackages, require, character.only = TRUE)
+```  
+
+```{r echo = T, results = 'hide'}
+if(!is.null(dev.list())) dev.off()  # Clear plots
+rm(list=ls())                       # Clean workspace
+```
+
+
+```{r}
+#filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/adei/"
+filepath <- "C:/Users/Arnau/Desktop/adei/deliverable3/"
+load(paste0(filepath,"5000cars_clean.RData"))
+
+
+# dim(df)       # Displays the sample size
+# names(df)     # Displays the names of the sample variables
+# summary(df)   
+```
+
+# Quantitative Logistics Regression
+
+Before we begin to see correlations with our target, we should consider the normality of this.
+
+## Normality
+```{r}
+hist(df$price,100,freq=F,col="darkslateblue",border = "darkslateblue")
+mm<-mean(df$price);ss<-sd(df$price)
+curve(dnorm(x,mean=mm,sd=ss),col="red",lwd=2,lty=3, add=T)
+shapiro.test(df$price)
+
+price_log <- log(df$price)
+hist(price_log,100,freq=F,col="darkslateblue",border = "darkslateblue")
+mm<-mean(price_log);ss<-sd(price_log)
+curve(dnorm(x,mean=mm,sd=ss),col="red",lwd=2,lty=3, add=T)
+```
+
+Although the histogram of the variable price is not really symmetric, we see that the target price is normally distributed because in the shapiro test we get a p-value smaller than 0.01
+so we can reject the null hypothesis.
+The graph is not symmetric because money variables are logarithmic. When applying a log transformation to the variable we get a symmetric graph.
+
+### Symmetry
+```{r}
+#moments library
+skewness(df$price)
+skewness(price_log)
+```
+
+Normal data should have 0 skewness: we see that our data is right skewed (2.31).
+
+### Kurtosis
+```{r}
+kurtosis(df$price)
+kurtosis(price_log)
+```
+
+Normal data should be 3. We have 15.1, so, in this case, our data is not normal.
+
+## Some transformations of numeric & quantitative variables
+```{r}
+ll<-which(df$years_after_sell==0)
+df$years_after_sell[ll]<-0.5
+
+ll<-which(df$tax==0)
+df$tax[ll]<-0.5
+
+ll<-which(df$mileage==0)
+df$mileage[ll]<-0.5
+
+ll<-which(df$mpg==0)
+df$mpg[ll]<-0.5
+```
+
+
+## Start to find models
+
+Steps to follow:
+
+1. Enter all relevant numerical variables in the model
+2. See if you need to replace a number with its equivalent factor
+3. Add to the best model of step 2, the main effects of the factors and retain the significant net effects.
+4. Add interactions: between factor-factor and between factor-numeric (doubles).
+5. Diagnosis of waste and observations. Lack of adjustment and / or influential.
+
+A good model not only needs to fit data well, it also needs to be parsimonious. That is, a good model should be only be as complex as necessary to describe a dataset. If we are choosing between a very simple model with 1 IV, and a very complex model with, say, 10 IVs, the very complex model needs to provide a much better fit to the data in order to justify its increased complexity. If it can’t, then the more simpler model should be preferred.
+
+## (1) Numerical variables
+
+### Method 1: take the most correlated variables 
+
+We use spearman's method since out target is not normally distributed
+
+```{r}
+M = round(cor(df[,c("price",vars_con)], method="spearman"),dig=2)
+corrplot(M,  method = 'circle', insig='blank',
+         addCoef.col ='black', number.cex = 0.8, order = 'AOE', diag=FALSE)
+```
+
+After seeing the correlation, to make an initial model, we should select the ones that are most correlated, which are:
+
+* tax
+* mileage
+* years_after_sell
+* mpg
+
+### Model 1
+```{r}
+model_1 <- lm(price~mileage+tax+mpg+years_after_sell, data=df);summary(model_1)
+```
+
+Model_1 explains 52.7% of the variability of the target.
+
+```{r}
+vif(model_1) #Variance inflation factor: multicorrelation
+```
+None of the variables of our model have a vif greater than 5 so they are independent with each other.
+
+### Model 2
+With this second model we will start applying transformations to our numerical variables and response variable
+```{r}
+library(MASS)
+# Target variable transformation?
+boxcox(price~mileage+tax+mpg+years_after_sell, data=df)
+# Lambda=0 - log transformation is needed as we predicted while testing for normality
+
+# New model:
+m2<-lm(log(price)~mileage+tax+mpg+years_after_sell,data=df)
+summary(m2)
+vif(m2) #Not changed because explanatory variables have not changed
+
+
+# Transformations to my regresors
+boxTidwell(log(price)~mileage+tax+years_after_sell, data=df)
+boxTidwell(log(price)~mpg+years_after_sell+mileage, data=df)
+residualPlots(m2,id=list(method=cooks.distance(m2),n=10)) 
+# Power transformations of the predictors in a linear model
+
+# Suggested by BoxTidwell
+m3<-lm(log(price)~sqrt(mileage)+poly(tax,2)+mpg+poly(years_after_sell,2),data=df)
+# Possibility: I(mpg^(-3/3))
+summary(m3)
+```
+
+Checking if the transformations suggested by boxTidwell are actually relevant.
+```{r}
+anova(m2, m3)
+```
+The p-value confirms that the models are very different.
+
+We will also remove multivariate outliers from the model
+```{r}
+m3<-lm(log(price)~sqrt(mileage)+poly(tax,2)+mpg+poly(years_after_sell,2),data=df[!df$mout=="MvOut.Yes",])
+summary(m3)
+```
+We can see from the summary that the squared tax is not relevant to our model
+```{r}
+m3_aux<-lm(log(price)~sqrt(mileage)+tax+mpg+poly(years_after_sell,2),data=df[!df$mout=="MvOut.Yes",])
+anova(m3_aux, m3)
+m3 <- m3_aux
+```
+We can see from the anova test that there is no statistical difference between the 2 models so we will stick with the simpler model.
+
+
+#### Small validation of our model before adding factors
+```{r}
+# Validation and effects consideration:
+Anova(m3) #Net effect test
+vif(m3)
+par(mfrow=c(2,2))
+plot(m3,id.n=0)
+library(lmtest)
+bptest(m3)
+```
+In the residuals vs fitted models we can observe that  the mean residual doesn't change with the fitted values (and so is doesn't change with x), but the spread of the residuals (and hence of the y's about the fitted line) is lightly increasing as the fitted values (or x) changes. That is, the spread is not constant and so we have some degree of heteroscedasticity.With the Breusch-Pagan test we get a p-value of 0.02525 so with a 99% of confidence we can reject the hypothesis of homoscedasticity.
+In the Normal QQ plot we can see that values tend to drop in value in the left tail, this effect happens because our variable log(price) is left skewed. But the effect is not too drastic so we could accept our distribution of residuals is normal.
+
+```{r}
+par(mfrow=c(1,1))
+residualPlots(m3,id=list(method=cooks.distance(m3),n=10))
+```
+We can see that the graph of mpg does not show some linear residuals because we have not applied a transformation to the variable.
+
+```{r}
+marginalModelPlots(m3)
+avPlots(m3,id=list(method=hatvalues(m3),n=5))
+crPlots(m3,id=list(method=cooks.distance(m3),n=5))
+```
+
+
+revisar aquest chunk
+```{r}
+# Possibility to adjust mpg value
+df2 <- df[!df$mout=="MvOut.Yes",]
+
+m5<-lm(log(price)~sqrt(mileage)+poly(tax,2)+ I(mpg^(-3/2))+years_after_sell,data=df2)
+summary(m5)
+par(mfrow=c(2,2))
+plot(m5,id.n=0)
+par(mfrow=c(1,1))
+residualPlots(m5,id=list(method=cooks.distance(m5),n=10))
+marginalModelPlots(m5)
+avPlots(m5,id=list(method=hatvalues(m5),n=5))
+crPlots(m5,id=list(method=cooks.distance(m5),n=5))
+
+library(lmtest)
+bptest(m5) #At the limit
+#test que contrasta si hi ha homoscedasticitat en els meus residus
+
+m4<-lm(log(price)~sqrt(mileage)+poly(tax,2)+I(mpg^(-3/2))+poly(years_after_sell,2),data=df[!df$mout=="MvOut.Yes",]) #Nested model 
+
+anova(m4, m5) #Does the variable age squared have to be included in my model
+summary(m5)
+par(mfrow=c(2,2))
+plot(m5)
+
+?step
+m4 <- step( m5, k=log(nrow(df))) #step with BIC criteria
+BIC(m4,m5)
+
+llres <- which(abs(rstudent(m4))>4);length(llres)
+df[llres,]
+
+par(mfrow=c(1,1))
+influencePlot(m5, id=list(n=10))
+boxplot(cooks.distance(m5))
+
+library(effects)
+plot(allEffects(m5)) 
+```
+
+
+## Adding factors to the model
+
+Refactor of engineSize to include it in the model
+```{r}
+df$engineSize_num <- as.numeric(as.character(df$engineSize))
+hist(df$engineSize_num)
+s_aux <- summary(df$engineSize_num)
+df$engineSize <- factor(cut(df$engineSize_num,breaks=c(s_aux[1],2,4,s_aux[6]),include.lowest = T ), labels=c("small_engine", "medium_engine", "large_engine"))
+barplot(table(df$engineSize))
+```
+
+```{r}
+m4 <- update(m3, ~.+fuelType+transmission+engineSize+manufacturer,data=df[!df$mout=="MvOut.Yes",])
+vif(m4)
+#we do not have dependency among variables
+summary(m4)
+#we now see that variable tax has lost importance on the model as its p-value has increased to 0.0022, but it is still relevant
+Anova(m4)
+#falta interpretar
+
+par(mfrow=c(2,2))
+plot(m4,id.n=0)
+par(mfrow=c(1,1))
+```
+We can see that with this new model we have lost almost all traces of heteroscedasticity and our model is fully homoscesdastic, and it is also normally distributed.
+
+```{r}
+library(effects)
+plot(allEffects(m4))
+```
+We see that our model defines the following:
+
+* the log(price) decreases in a reciprocal way (1/x, x>0) as the mileage grows 
+* the log(price) decreases in a linear way as the tax grows
+* the log(price) decreases in a linear way as the mpg grows
+* the log(price) decreases in a reciprocal way (1/x, x<0) as the years_after_sell grows
+* the log(price) decreases in a reciprocal way (1/x, x<0) as the years_after_sell grows
+* the log(price) is higher with diesel and hybrid cars than petrol cars
+* the log(price) is higher with automatic and semi-automatic cars than manual cars
+* the log(price) increases in a linear way as the size of the engine grows
+* the log(price) is higher with BMW, Merc and Audi cars than VW cars
+
+### Adding interactions 
+
+We detected in our previous analysis that the numeric variable tax had little predictive power for our model. We will try to include as a factor and compute its interaction between another factor variable.
+```{r}
+m5<-lm(log(price)~sqrt(mileage)+mpg+poly(years_after_sell,2)+fuelType*f.tax+engineSize+transmission+manufacturer, data=df[!df$mout=="MvOut.Yes",])
+summary(m5)
+#our interaction seems to have some insignificant factors
+#let's see if this model offers some difference over our previous model
+anova(m5,m4) #it does
+#but let's try to find a better interaction for our tax variable
+m5_v2<-lm(log(price)~sqrt(mileage)+mpg+poly(years_after_sell,2)+fuelType+engineSize+transmission*f.tax+manufacturer, data=df[!df$mout=="MvOut.Yes",])
+summary(m5_v2)
+m5_v3<-lm(log(price)~sqrt(mileage)+mpg+poly(years_after_sell,2)+fuelType+engineSize*f.tax+transmission+manufacturer, data=df[!df$mout=="MvOut.Yes",])
+summary(m5_v2)
+
+
+vif(m5)
+summary(m5)
+Anova(m6)
+plot(allEffects(m6))
+m7 <- step( m6, k=log(nrow(df[!df$mout=="YesMOut",])))
+m8 <- step( m5, k=log(nrow(df[!df$mout=="YesMOut",])))
+AIC(m5,m6,m7,m8)
+
+summary(m7)
+```
+
