@@ -1,5 +1,5 @@
 ---
-title: "Deliverable 1"
+title: "Deliverable 2"
 author: "Pere Arnau Alegre & Andrés Jiménez González"
 date: \today
 output:
@@ -13,10 +13,10 @@ output:
   html_document:
     toc: no
     toc_depth: '4'
-geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
-fontsize: 18pt
-subtitle: Data Processing, Description, Validation and Profiling
-classoption: a4paper
+geometry: left=1.0cm,right=1.0cm,top=1.25cm,bottom=1.52cm
+fontsize: 10pt
+subtitle: PCA, Clustering and MCA
+classoption: a3paper
 editor_options: 
   chunk_output_type: console
 ---
@@ -75,8 +75,8 @@ Volkswagen and Audi cars are to be considered).
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-setwd("C:/Users/TOREROS-II/Documents/GitHub/adei/adei/deliverable2")
-#setwd("C:/Users/Arnau/Desktop/adei/deliverable2")
+#setwd("C:/Users/TOREROS-II/Documents/GitHub/adei/adei/deliverable2")
+setwd("C:/Users/Arnau/Desktop/adei/deliverable2")
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot")
@@ -85,8 +85,6 @@ if(length(missingPackages)) install.packages(missingPackages)
 lapply(requiredPackages, require, character.only = TRUE)
 ```  
 
-## Select a sample of 5000 records
-From the proposed database, we need to select a sample of 5000 records randomly so we can start analyzing our data.
 ```{r echo = T, results = 'hide'}
 if(!is.null(dev.list())) dev.off()  # Clear plots
 rm(list=ls())                       # Clean workspace
@@ -94,8 +92,8 @@ rm(list=ls())                       # Clean workspace
 
 
 ```{r}
-filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/adei/"
-#filepath <- "C:/Users/Arnau/Desktop/adei/"
+#filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/adei/"
+filepath <- "C:/Users/Arnau/Desktop/adei/"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -132,10 +130,11 @@ countX <- function(x,X) { # Function to count a specific number of appearences
 }
 ```
 
-# Univariate Description and Preprocessing
 
-## Variable initialization of missings, outliers and errors for columns & rows
-```{r}
+```{r, fig.show='hide', include=FALSE}
+#Univariate Description and Preprocessing
+##Variable initialization of missings, outliers and errors for columns & rows
+
 jmis<-rep(0,2*ncol(df))  # columns - variables
 imis<-rep(0,nrow(df))  # rows - cars
 
@@ -245,16 +244,14 @@ plot( res.mout$md, res.mout$rd )
 abline( h=res.mout$cutoff, lwd=2, col="red") 
 abline( v=res.mout$cutoff, lwd=2, col="red")
 llmout <- which( ( res.mout$md > res.mout$cutoff ) & (res.mout$rd > res.mout$cutoff) )
-llmout
 df$mout <- 0 
 df$mout[ llmout ] <- 1 
 df$mout <- factor( df$mout, labels = c("MvOut.No","MvOut.Yes"))
-res.mout$cutoff
 ```
 
 # Principal Component Analysis
 ## Calculate total variance explained by each principal component
-```{r}
+```{r, out.width="50%", out.height="50%"}
 vars_con <- c("mileage", "tax", "mpg", "years_after_sell", "inconsistencies")
 vars_dis <- c("transmission", "fuelType", "engineSize", "manufacturer")
 vars_res <- c("price", "Audi")
@@ -265,7 +262,7 @@ summary(res.pca)
 According to the Kaiser criteria we should keep 2 dimensions, because it says that we should keep that dimensions with variance > 1.
 
 ## Elbow
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_screeplot(
   res.pca, 
   addlabels=TRUE, 
@@ -291,8 +288,7 @@ res.dimdes <- dimdesc( res.pca, axes = 1:3, proba = 0.01)
 res.dimdes$Dim.1
 ```
 
-Dimension 1 has a great direct correlation with variables years_after_sell, mileage and mpg;
-and a great inverse correlation with variable tax.
+Dimension 1 has a great direct correlation with variables years_after_sell, mileage and mpg, and a great inverse correlation with variable tax.
 
 ### Axe 2
 ```{r}
@@ -310,12 +306,12 @@ res.dimdes$Dim.3
 Dimension 3 has a good direct correlation with variable inconsistencies and tax;
 and a good inverse correlation with variables mpg.
 
-```{r}
-res.pca<-PCA(df[,vars_con], ind.sup = llmout)
-```
 
-## Detection of multivariant outliers and influent data
-```{r}
+## Individuals point of view
+### Contribution
+```{r, out.width="50%", out.height="50%"}
+res.pca<-PCA(df[,vars_con], ind.sup = llmout)
+#We perform a PCA using multivariate outliers as supplementary observations
 fviz_pca_ind(res.pca, col.ind="contrib", geom = "point") +
 scale_color_gradient2(low="darkslateblue", mid="white",
                       high="red", midpoint=0.40)
@@ -324,66 +320,113 @@ scale_color_gradient2(low="darkslateblue", mid="white",
 We can see that there are some individuals that are too contributive. So now, let s try to understand them better with extreme individuals.
 
 ### Extreme individuals
+
 #### In dimension 1:
+
 ```{r}
 rang<-order(res.pca$ind$coord[,1])
-contrib.extremes<-c(row.names(df)[rang[1]], row.names(df)[rang[length(rang)]])
 contrib.extremes<-c(row.names(df)[rang[1:10]], row.names(df)[rang[(length(rang)-10):length(rang)]])
+```
+
+
+```{r, out.width="50%", out.height="50%"}
 fviz_pca_ind(res.pca, select.ind = list(names=contrib.extremes))
 ```
 
 We can now have a look at them:
 ```{r}
-df[which(row.names(df) %in% row.names(df)[rang[length(rang)]]), 1:19]
-df[which(row.names(df) %in% row.names(df)[rang[1]]),1:19]
+df[955,1:19] #most contributive observation in positive 1st dimension
+df[3327, 1:19] #most contributive observation in negative 1st dimension
 ```
+The 1st observation, 955, has a very high mileage and mpg, is super cheap, has low taxes and was sold long ago.
+The 2nd observation, 3327, is the opposite of the 1st. It has very low mileage, but it is extremly expensive and has very high taxes.
+
 
 #### In dimension 2:
+
 ```{r}
 rang<-order(res.pca$ind$coord[,2])
-contrib.extremes<-c(row.names(df)[rang[1]], row.names(df)[rang[length(rang)]])
 contrib.extremes<-c(row.names(df)[rang[1:10]], row.names(df)[rang[(length(rang)-10):length(rang)]])
+```
+
+
+```{r, out.width="50%", out.height="50%"}
 fviz_pca_ind(res.pca, select.ind = list(names=contrib.extremes))
 ```
 
 We can now have a look at them:
 ```{r}
-df[which(row.names(df) %in% row.names(df)[rang[length(rang)]]), 1:28]
-df[which(row.names(df) %in% row.names(df)[rang[1]]),1:28]
+df[3327,1:19] #most contributive observation in positive 2nd dimension
+df[1396, 1:19] #most contributive observation in negative 2nd dimension
 ```
+
+## Interpreting the axes: Variables point of view coordinates, quality of representation, contribution of the variables
+```{r}
+res.des <- dimdesc(res.pca)
+```
+
+### First dimension
+```{r, out.width="50%", out.height="50%"}
+fviz_contrib(  # contributions of variables to PC1
+  res.pca, 
+  fill = "darkslateblue",
+  color = "darkslateblue",
+  choice = "var", 
+  axes = 1, 
+  top = 5)
+res.des$Dim.1
+```
+
+In the first dimension we see that for the quantitative variables the most positively related, from more to less, are:
+
+* Years_after_sell (0.83)
+* mileage (0.82)
+* mpg (0.75) 
+
+ Finally we have that variable tax is negatively correlated with a -0.71 cor value.
+
+### Second dimension
+```{r, out.width="50%", out.height="50%"}
+fviz_contrib(  # contributions of variables to PC1
+  res.pca, 
+  fill = "darkslateblue",
+  color = "darkslateblue",
+  choice = "var", 
+  axes = 2, 
+  top = 5)
+res.des$Dim.2
+```
+
+For the second dimension we see that the most positively correlated variable is "inconsistencies" with a value of 0.84, and negatively correlated is tax with a -0.31 value.
+
+**We can conclude, then, that the first dimension is the one with the biggest correlations and that explains most of the data.**
+
 
 ## PCA taking into account also supplementary variables
 Our supplementary variables are Price and Audi.
-```{r}
+```{r, out.width="50%", out.height="50%"}
 res.pca<-PCA(df[,c(vars_res,vars_con, vars_dis)], ind.sup = llmout, quanti.sup = 1, quali.sup = c(2,8:11))
 ```
 
 The variable price is strongly negatively related with the first dimension axis. This means that it has a great correlation with variable tax and inverse correlation with variables mpg, mileage and years_after_sell. 
 
-The variable Audi has very similar centroids
+The variable Audi has very similar centroids.
 
 
 # Kmeans Classification
 We determined that we had to keep 3 dimensions of the PCA to maintain an inertia above 80%. Therefore we will have to use 3 dimensions for the computation of the Kmeans.
 
 ## Optimal number of clusters
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_nbclust(res.pca$ind$coord[,1:3], kmeans, method = "wss")
 ```
 Using the elbow method, we determined that the optimal number of clusters to compute for kmeans was 5. With 5 clusters we retain sufficient inertia and also we keep the within distance small and the between distance big.
 
 ## Kmeans computation and visualization
-```{r}
-#dis<-dist(res.pca$ind$coord[,1:2])
+```{r, out.width="50%", out.height="50%"}
 set.seed(1)
 #when setting a seed before the generation of kmeans we force kmeans to generate the same result (a cluster with an inertia > 0.75)
 res.km<-kmeans(res.pca$ind$coord[,1:3],5)
-#res_aux<-table(res.km$cluster)
-#while(res.km$betweenss/res.km$totss < 0.75 & res_aux[1]!=1979 & res_aux[2]!=547 &
- #   res_aux[3]!=1159 & res_aux[4]!=1069){
-#  res.km<-kmeans(res.pca$ind$coord[,1:3],5)
-#  res_aux<-table(res.km$cluster)
-#}
 
 res.km$betweenss/res.km$totss   #calculate total retained inertia
 table(res.km$cluster)
@@ -399,7 +442,7 @@ After executing kmeans we get a retained inertia of the 78.88098%
 ```
 
 ## Profiling of clusters
-```{r}
+```{r, out.width="50%", out.height="50%"}
 df$kmeans_clust <-0
 k=5
 df[-llmout,"kmeans_clust"]<-res.km$cluster
@@ -433,10 +476,10 @@ res.cat$category
   + The first thing we can notice is that cluster 1 contains 28.7% of all cars with engineSize=3 in the sample. On average 11.42% of the cars have an engine of that size, but in cluster 1 those cars are overrepresented (29.98%). In addition, cheap cars are overrepresented (20% of global mean vs 32.5% mean in cluster 1). Furthermore, automatic cars are overrepresented (26.4% of global mean vs 39.3% mean in cluster 1). Finally, the cluster has very few expensive and extremly expensive cars.
   
 * Cluster 2
-  + The first thing we can notice is that cluster 1 contains 71.21% of hybrid fuel cars in the sample. On average 1.32% of the cars use hybrid fuel, but in cluster 1 hybrid cars are overrepresented (57.32%). Diesel cars represent 57.2% of the sample, but 0.87% of them are included in Cluster 1. The same can be seen for cars that run on petrol. Cars with an engineSize of 1 represent 7.48% of the sample, but 0% of them are included in Cluster 1. Finally, on average 26.4% of the cars use an automatic transmission, but in cluster 1 automatics cars are overrepresented (57.32%) and manual and semi-automatic cars are underrepresented.
+  + The first thing we can notice is that cluster 2 contains 71.21% of hybrid fuel cars in the sample. On average 1.32% of the cars use hybrid fuel, but in cluster 2 hybrid cars are overrepresented (57.32%). Diesel cars represent 57.2% of the sample, but 0.87% of them are included in Cluster 2. The same can be seen for cars that run on petrol. Cars with an engineSize of 1 represent 7.48% of the sample, but 0% of them are included in Cluster 1. Finally, on average 26.4% of the cars use an automatic transmission, but in cluster 2 automatics cars are overrepresented (57.32%) and manual and semi-automatic cars are underrepresented.
   
 * Cluster 3
-  + The first thing we can notice is that cluster 3 contains 82.6% of all extremly expensive cars in the sample. On average 19.9% of the cars are extremly expensive, but in cluster 3 those cars are overrepresented (41.54%). In addition, very expensive cars are overrepresented (20% of global mean vs 34.5% mean in cluster 3). Furthermore, semi-automatic cars are overrepresented (38.78% of global mean vs 49.62% mean in cluster 1). Finally, manual, cheap and super cheap cars are underrepresented in the class.
+  + The first thing we can notice is that cluster 3 contains 82.6% of all extremly expensive cars in the sample. On average 19.9% of the cars are extremly expensive, but in cluster 3 those cars are overrepresented (41.54%). In addition, very expensive cars are overrepresented (20% of global mean vs 34.5% mean in cluster 3). Furthermore, semi-automatic cars are overrepresented (38.78% of global mean vs 49.62% mean in cluster 3). Finally, manual, cheap and super cheap cars are underrepresented in the class.
   
 * Cluster 4
   + In cluster 4 we can see that there is more expensive cars than in the gobal (38.3951682% in cluster 4 vs. 19.98% in global). It happens the same with cheap cars (25.6255393% in cluster 4 vs. 20.04% in global). But for the super cheap and extremely expensive cars is the opposite, they are underrepresented. For the extremely expensive cars the global percentage is 19.90%, while the percentage in cluster 4 is 5.4357204%, and for super cheap cars the global percentage is 20.00% and the cluster 4 percentage is 10.8714409%. So we can say that cluster 4 has the cars with an average price similar to the mean.
@@ -445,7 +488,7 @@ res.cat$category
   + Cluster 5 is defined by the cheapest cars. We can confirm this it contains a great percentage of super cheap and cheap cars and a very little percentage of extremely expensive and very expensive cars. The percentage of super cheap cars in cluster 5 is 53.51% while in the global is 20.00%, and the percentage of cheap cars in cluster 5 is 34.89% while in the global is 20.04%. We can observe the opposite behaviour with the expensive cars: the percentage of extremely expensive cars in cluster 5 is 1.12% while in the global is 20.08%, and the percentage of cheap cars in cluster 5 is 0% while in the global is 19.90%. We can also highlight that it has a lot of cars with manual transmission (61.83% in cluster 4 vs. 34.82% in global).
 
 * Cluster 6
- + This cluster groups all multivariant outliers in the sample. What we can observe from this cluser is that contains extreme observations like super cheap and extremely expensive cars and cars with a very high engine size. Also, cars with automatic transmission and that are BMW are overrepresented while semi-auto, expensive and very expensive cars are underrepresented.
+  + This cluster groups all multivariant outliers in the sample. What we can observe from this cluser is that contains extreme observations like super cheap and extremely expensive cars and cars with a very high engine size. Also, cars with automatic transmission and that are BMW are overrepresented while semi-auto, expensive and very expensive cars are underrepresented.
 
 
 We now proceed to see the quantitative variables that characterizes the clusters. We can see in the output from res.cat$quanti.var all the numeric variables that characterize the clusters. From a more detailed look, variables **year**, **mileage**, **tax** and **inconsistencies** maintain a strong relation with the cluster number because of their high eta2 value.
@@ -473,7 +516,7 @@ We want to know now which variables are associated with the quantitative variabl
   + In cluster 5 we can highlight that the price of the cars is very cheap, the mean of the cluster is 12808.48 while the global mean is almost double: 21418.53. It is also very remarkable that the taxes are very low, the mean of the cluster is 22.61 while the global mean is almost double: 122.91. This variables have lower mean that the global but we also have variables that highlight for having a higher mean, like mpg and mileage. The global mean of mpg is 53 and its mean in cluster 5 is 65.27, and the global mean of mileage is 23289.52 and its mean in cluster 5 is 38085.44.
   
 * Cluster 6
-+ In cluster 6 we can see that the inconsistencies are higher that in the overall mean, as well as the mileage, tax and price:
+  + In cluster 6 we can see that the inconsistencies are higher that in the overall mean, as well as the mileage, tax and price:
                  Mean in category Overall mean sd in category
 inconsistencies  0.3597561        0.02960
 mileage          59000.55         23289.51910
@@ -483,7 +526,7 @@ price            29204.11         21418.53580
 The variable mean mpg in cluster 6 (44.96) is lower than the overall mean (53), and the cars in cluster 6 are older because the mean of the variable year is 2014 and in the overall mean is 2017.
 
 ## HCPC computation and visualization
-```{r}
+```{r, out.width="50%", out.height="50%"}
 #dis<-dist(res.pca$ind$coord[,1:2])
 res.hcpc <- HCPC(res.pca,nb.clust = -1, proba = 0.01)
 100*(res.hcpc$call$t$within[1]-res.hcpc$call$t$within[1:10])/(res.hcpc$call$t$within[1])   #calculate total retained inertia
@@ -498,7 +541,7 @@ After executing HCPC we get a retained inertia of the 63.88594%
 ```
 
 ## Profiling of clusters
-```{r}
+```{r, out.width="50%", out.height="50%"}
 df$HCPC_clust <-0
 k=4
 df[-llmout,"HCPC_clust"]<-res.hcpc$data.clust$clust
@@ -549,7 +592,7 @@ We want to know now which variables are associated with the quantitative variabl
   + Cluster 1 groups cars with higher prices than the overall mean. The mean price in this first cluster is 27024 while the overall mean sits at 21154. It also contains cars that pay higher taxes and cars that have higher fuel consumption (low mpg). Finally, the cluster contains cars with a very low mileage (7200 on avg) compared to the global mean of 22000 and the cars where sold recently, as they average year after sell is 3 for the cluster and 4.7 for the global mean.
 
 * Cluster 2
-  +Cluster 2 contains cars that where sold earlier than other cars, as they average year after sell is 6 for the cluster and 4.7 for the global mean. It also contains cars with a higher mileage and higher tax. Finally it contains cheaper cars than the global mean, 17850 dollars for the cluster vs 21100 for the overall mean.
+  + Cluster 2 contains cars that where sold earlier than other cars, as they average year after sell is 6 for the cluster and 4.7 for the global mean. It also contains cars with a higher mileage and higher tax. Finally it contains cheaper cars than the global mean, 17850 dollars for the cluster vs 21100 for the overall mean.
   
 * Cluster 3
   + In this cluster we can see that the variable mileage is higher than the overall mean while the taxes are lower. This can indicate us that they are old or very used cars. The most important trait for this cluster is that it groups observations that only have inconsistencies. The price is not highlighted so it must be arround the global mean. 
@@ -571,14 +614,14 @@ chisq.test(tt) #to see if variables are independents. H0: Variables are independ
 We get a p-value lower than 0.05 so we can reject the H0. In our sample, the row and the column variables are statistically significantly associated.
 
 We are now going to take a look to the simple correspondences. 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 res.ca <- CA(tt)
 summary(res.ca,dig=2)
 fviz_eig(res.ca) #Visualize the eigenvalues
 ```
 According to the Kaiser criteria, we have to consider the first dimension. In this correspondence analysis almost all the variance is explained in the 1st dimension (96.74%).
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 plot( res.ca, cex=0.8, graph.type = "classic" )
 lines( res.ca$row$coord[,1], res.ca$row$coord[,2], col="blue", lwd = 2 )
 lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
@@ -587,7 +630,7 @@ legend("bottomleft", title="Lines", legend=c("Tax", "Price"), col=c("red","blue"
 This graph shows that with mildly high taxes come cars with prices that are average or high. With cheap cars come very low taxes. Very high taxes come with cars that are between expensive and cheap. With extremely expensive cars we get mildly high taxes. 
 
 ### Contribution of rows to the dimensions
-```{r}
+```{r, out.width="50%", out.height="50%"}
 res.ca$row$contrib
 fviz_contrib(res.ca, choice = "row", axes = 1:2, top = 10)
 ```
@@ -596,7 +639,7 @@ Rows that contribute the most to Dim.1 are the most important in explaining the 
 Rows that do not contribute much to any dimension or that contribute to the last dimensions (Dim 2) are less important. In our case these are cheap & expensive cars.
 
 The most important (or, contributing) row points can be highlighted on the scatter plot as follow:
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_ca_row(res.ca, col.row = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE)
@@ -617,14 +660,14 @@ chisq.test(tt) #to see if variables are independents. H0: Variables are independ
 We get a p-value lower than 0.05 so we can reject the H0. In our sample, the row and the column variables are statistically significantly associated.
 
 We are now going to take a look to the simple correspondences. 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 res.ca <- CA(tt)
 fviz_eig(res.ca) #Same outputs as PCA
 summary(res.ca,dig=2)
 ```
 According to the Kaiser criteria, we have to consider the first dimension. In this correspondence analysis almost all the variance is explained in the 1st dimension (97.1%).
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 plot( res.ca, cex=0.8, graph.type = "classic" )
 lines( res.ca$row$coord[,1], res.ca$row$coord[,2], col="blue", lwd = 2 )
 lines( res.ca$col$coord[,1], res.ca$col$coord[,2], col="red", lwd = 2 )
@@ -634,7 +677,7 @@ Cars that use petrol fuel are priced in an undetermined matter, because its poin
 
 
 ### Contribution of rows to the dimensions
-```{r}
+```{r, out.width="50%", out.height="50%"}
 res.ca$row$contrib
 fviz_contrib(res.ca, choice = "row", axes = 1:2, top = 10)
 ```
@@ -643,7 +686,7 @@ Rows that contribute the most to Dim.1 are the most important in explaining the 
 Rows that do not contribute much to any dimension or that contribute to the last dimensions (Dim 2) are less important. In our case these are expensive & very expensive cars.
 
 The most important (or, contributing) row points can be highlighted on the scatter plot as follow:
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_ca_row(res.ca, col.row = "contrib",
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
              repel = TRUE)
@@ -656,22 +699,21 @@ In other words, dimension 1 is mainly defined by the opposition of cheap cars (p
 # MCA Analysis
 
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 par(mfrow=c(1,1))
-llvout<-which(df$mout=="MvOut.Yes");length(llvout) #Multivariate outliers
 vars_dis <- c("model","transmission","fuelType","engineSize","manufacturer","f.price","f.tax","f.mileage","f.mpg","f.year")
-summary( df[-llvout,c("f.price","Audi",vars_dis,"price") ])
 res.mca<-MCA(df[,c(vars_dis[c(2,5:10)])])
-summary(res.mca,nbelements=50, nbind=0)
+#summary(res.mca,nbelements=50, nbind=0)
 ```
 
 ## Interpreting the axes association to factor map
 
 ### Variables representation graph (3rd graph from MCA)
+Correlation between variables and principal dimensions:
 From the Variables representation map, we can see that all variables are placed on the first quadrant of the first factorial plane. From a more detailed look, the manufacturer variable has no importance on the 1st dimension but explains the 2nd dimension a bit, so cars will be scattered according to its manufacturer alongside the 2nd dimension. Transmission explains the 1st and 2nd dimension in a equal fashion, so the cars will be scattered alongside the 2 dimensions. Variables f.mpg, f.mileage, f.price, f.year and f.tax have a high representation on the positive side of the 1st dimension, so cars will be scattered alongside the 1st dimension according to these variables.
 
-### MCA factor map (1st graph from MCA)
-```{r}
+### MCA factor map
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_var(res.mca, col.var="contrib",
              gradient.cols =rainbow(7) , 
              repel = TRUE, # avoid text overlapping (slow)
@@ -695,7 +737,7 @@ head(get_eigenvalue(res.mca), 10)
 We consider, according to the generalized Kaiser theorem, all those dimensions such that their eigenvalue is greater than the mean. We see that the average gives us 0.1428571. Therefore, we will take up to dimension 8, which represents the 60.88943% of the sample.
 
 We can also visualize the percentages of inertia explained by each MCA dimensions:
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_screeplot(
   res.mca, 
   addlabels=TRUE, 
@@ -708,7 +750,7 @@ fviz_screeplot(
 
 ## Individuals point of view
 Are they any individuals "too contributive"?
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_ind(
   res.mca, 
   geom=c("point"),
@@ -720,176 +762,99 @@ We can see that individuals located in the periphery are the most contributive.
 
 
 ### Groups of individuals
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_ind(res.mca, label="none", habillage="transmission")
 ```
 Automatic cars are located on the positive side of the 2nd dimension where manual cars are on the nagative side of the 2nd dimension.
 
-```{r}
+```{r,out.width="50%", out.height="50%"}
 fviz_mca_ind(res.mca, label="none", habillage="manufacturer")
 ```
 We cannot see any significant difference in the position of observations.
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_ind(res.mca, label="none", habillage="f.price")
 ```
 Individuals are distributed across the 1st dimension: from extremely expensive cars on the negative side to super cheap on the positive side.
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_ind(res.mca, label="none", habillage="f.tax")
 ```
 We can only appreciate that observations with very high taxes are located on the positive side of the 2nd dimension.
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_ind(res.mca, label="none", habillage="f.mileage")
 ```
 Individuals are distributed across the 1st dimension: from very low mileage on the negative side to very high mileage on the positive side.
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_ind(res.mca, label="none", habillage="f.mpg")
 ```
 We cannot see any significant difference in the position of observations.
 
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_mca_ind(res.mca, label="none", habillage="f.year")
 ```
 Individuals are distributed across the 1st dimension: from an early time of selling (high year) on the negative side to very old year of selling (low year) on the positive side.
 
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 fviz_ellipses(res.mca, c("f.price", "f.year"),
               geom = "point")
 ```
 
 
+## MCA using multivariant
+**How do supplementary variables enhance the axis interpretation?**
 
-```{r}
-# Individual Representation
-plot.MCA(res.mca,choix=c("ind"),cex=0.8)
-plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),cex=0.8)
-
-# Representation of categories
-plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(1,2), graph.type = "classic", cex = 0.5)
-lines(res.mca$var$coord[1:3,1],res.mca$var$coord[1:3,2],lwd=1,col="black") # Transmission
-lines(res.mca$quali.sup$coord[1:4,1],res.mca$quali.sup$coord[1:4,2],lwd=2,col="darkgreen")
-names(res.mca)
-res.mca$var
-plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(3,4))
-plot.MCA(res.mca,choix=c("var"),axes=c(3,4))
-
-# Use modern ggplot facilities
-names(res.mca)
-fviz_eig(res.mca)
-fviz_cos2(res.mca, choice = "var", axes = 1:2)+theme_bw()
-fviz_contrib(res.mca, choice = "var", axes = 1:2)+theme_bw()
-fviz_contrib(res.mca, choice = "var", axes = 1:2)+
-   theme(text = element_text(size = 7.5),
-         axis.title = element_text(size = 5),
-         axis.text = element_text(size = 5)
-         )
-
-fviz_mca_var(res.mca, col.var="contrib",repel=TRUE,labelsize = 2)+
-    scale_color_gradient2(low="green", mid="blue", 
-    high="red", midpoint=0.75)+theme_bw()
-
-fviz_mca_biplot(res.mca, invisible="ind",axes=1:2,repel=T,labelsize = 2)+theme_bw()
-#fviz_mca_biplot(res.mca, axes=1:2,repel=TRUE,arrows=c(TRUE,FALSE))+theme_bw()
-
-
+```{r, out.width="50%", out.height="50%"}
+llvout<-which(df$mout=="MvOut.Yes");length(llvout) #Multivariate outliers
 res.mca<-MCA(df[,c(vars_dis[c(2:3,5:10)],"price", "inconsistencies", "Audi")], quali.sup=c(11),quanti.sup=c(9:10), ind.sup=llvout)
+mean(res.mca$eig[,1])
+head(get_eigenvalue(res.mca), 10) #keep 9 dimensions
+fviz_mca_var(res.mca, col.var="contrib",
+             gradient.cols =rainbow(7) , 
+             repel = TRUE, # avoid text overlapping (slow)
+             ggtheme = theme_minimal()
+             )
+
 ```
+From the supplementary quantitative variables graph we can see that variable price will explain a lot of the negative 1st dimension, so cars with a low price will be located on the positive part of the 1st dimension and expensive cars on the negative side of the dimension. 
+In addition, when we add the multivariate outliers as supplementary individuals, they get taken out of the mca computation so they do not disrupt the calculus with their extreme values.
+Now, when we draw a variable factor map, we can also see the position of our supplementary variables relative to our original categorical variables and see how they correlate to each other. For example, from the previous graph we can see that our binary target variable "Audi", does not correlate with any variable whatsoever, as its 2 main values "Yes" and "No" are located on the center of the graph. We also saw this in the previous MCA analysis, when the Audi point of variable manufacturer were located on the center of the graph.
 
-# MCA using multivariant
 
-```{r}
-par(mfrow=c(1,1))
-llvout<-which(df$mout=="YesMOut");length(llvout) #Multivariate outliers
-vars_dis
-c("Audi",vars_dis[3:11],"price")
-summary( df[-llvout,c("aux_price","Audi",vars_dis,"price") ])
-res.mca<-MCA(df[,c(vars_dis[c(3:4,6:11)],"price", "Audi") ],quali.sup=c(4,10),quanti.sup=9 , ind.sup=llvout)
-summary(res.mca,nbelements=50, nbind=0)
-mean(res.mca$eig[,1]) #All dimensions which eigenvalue is higher than the mean or 80% of explained variance - depending on the criteria which is used
+# Hierarchical Clustering from MCA
 
-# Individual Representation
-plot.MCA(res.mca,choix=c("ind"),cex=0.8)
-plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),cex=0.8)
-
-# Representation of categories
-plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(1,2), graph.type = "classic", cex = 0.5)
-lines(res.mca$var$coord[1:3,1],res.mca$var$coord[1:3,2],lwd=1,col="black") # Transmission
-lines(res.mca$quali.sup$coord[1:4,1],res.mca$quali.sup$coord[1:4,2],lwd=2,col="darkgreen")
-names(res.mca)
-res.mca$var
-plot.MCA(res.mca,choix=c("ind"),invisible=c("ind"),axes=c(3,4))
-plot.MCA(res.mca,choix=c("var"),axes=c(3,4))
-
-# Use modern ggplot facilities
-names(res.mca)
-fviz_eig(res.mca)
-fviz_cos2(res.mca, choice = "var", axes = 1:2)+theme_bw()
-fviz_contrib(res.mca, choice = "var", axes = 1:2)+theme_bw()
-fviz_contrib(res.mca, choice = "var", axes = 1:2)+
-   theme(text = element_text(size = 7.5),
-         axis.title = element_text(size = 5),
-         axis.text = element_text(size = 5)
-         )
-
-fviz_mca_var(res.mca, col.var="contrib",repel=TRUE,labelsize = 2)+
-    scale_color_gradient2(low="green", mid="blue", 
-    high="red", midpoint=0.75)+theme_bw()
-
-fviz_mca_biplot(res.mca, invisible="ind",axes=1:2,repel=T,labelsize = 2)+theme_bw()
-#fviz_mca_biplot(res.mca, axes=1:2,repel=TRUE,arrows=c(TRUE,FALSE))+theme_bw()
-```
-
-# Synthesis through HCPC: Hierarchical Clustering
-
-```{r}
-###
-### Clustering the individuals
-### Before, you have to perform a MCA with the number of axes 
-### that you have decided to take into account (indicated through ncp=)
+```{r, fig.show='hide', out.width="50%", out.height="50%"}
 res.hcmc<-HCPC(res.mca,nb.clust=-1,order=TRUE)
-names(res.hcmc)
-
-names(res.hcmc$call$t)
 res.hcmc$call$t$within[1:15]
 (res.hcmc$call$t$within[1]-res.hcmc$call$t$within[1:10])/res.hcmc$call$t$within[1]
 ```
 
 We consider that 6 is the better number of cluster to have because it contains the 64.2% of the variability and having more clusters doesn't increases significantly the amount of variability. 
 
-```{r}
+```{r, out.width="50%", out.height="50%"}
 res.hcmc<-HCPC(res.mca,nb.clust=6,order=TRUE)
-df$claHCMC<-6
+df$claHCMC<-7
 df[row.names(res.hcmc$data.clust),"claHCMC"]<-res.hcmc$data.clust$clust
 df$claHCMC<-factor(df$claHCMC)
-summary(res.hcmc$data.clust$clust)
 table(df$claHCMC)
+#Multivariate outliers will be in cluster 7
 
-### Interpret clustering results
-summary(res.hcmc$data.clust$clust)
+# Interpret clustering results
 barplot(table(df$claHCMC),col="darkslateblue",border="darkslateblue",main="[HCPC]#observations/cluster")
 
-# Dendrogram
-fviz_dend(res.hcmc, show_labels = FALSE)
 # Individuals factor map
 fviz_cluster(res.hcmc, geom = "point", main = "Factor map")
 
-fviz_mca_ind(res.mca, 
-             label = "none", invisible=c("ind.sup"),# hide individual labels
-             habillage = "claHCMC", # color by groups 
-             addEllipses = TRUE, ellipse.type = "confidence",
-             ggtheme = theme_bw()) 
-
-
 ```
 
-We proceed to explain the data obtained.
 
-### Description of clusters by categorical variables
+## Description of clusters by categorical variables
+
+We proceed to explain the data obtained.
 
 ```{r}
 res.hcmc$desc.var$test.chi2
@@ -903,58 +868,28 @@ res.hcmc$desc.var$category
 ```
 
 * Cluster 1
-  + We can see that cars in the first cluster use to be extremely expensive and sold in the year 2020. Moreover, they have low mpg and mileage.
-  
-  mil-[1,5.99e+03]        95.7046980 25.186104
-  extremely expensive         74.2281879 19.520265
-  (2019,2020]                 40.6711409  6.389578
-  f.mpg-[20,44.8]               60.5369128 24.545079
-  f.tax-(125,145]               88.1879195 52.191894
+  + We can see that cars in the first cluster are extremely expensive and sold in the year 2020. Moreover, they have low mpg and mileage. Audi and BMW cars are overrepresented.
+
   
 * Cluster 2
-  + Cars in cluster 2 use to have been sold between 2018 and 2019. Very expensive cars are overrepresented.
-  
-  (2017,2019]                 96.68508287 41.521919
-  f.mil-(5.99e+03,1.71e+04] 62.43093923 25.454921
-  f.tax-(125,145]               88.32872928 52.191894
-  very expensive              44.54419890 20.698925
+  + Cars in cluster 2 use to have been sold between 2018 and 2019. Very expensive cars and with low mileage are overrepresented. The avegare amount of Mercedes cars is a little bit larger than the global average (overrepresented). 
   
     
 * Cluster 3
   + Cars in cluster 3 use to have been sold in 2017. They have a mileage close to the mean and half of them are expensive cars (they are overrepresented).
-  
-  (2016,2017]                 76.7068273 17.928040
-  f.mil-(1.71e+04,3.45e+04] 74.9665328 25.785773
-  expensive                   49.1298527 20.574855 
-  tax-(145,155]               22.3560910 10.194376
+
 
 * Cluster 4
-  +  Cars in cluster 4 use to have been sold between 2008 and 2016. They have higher taxes and mileage than the mean, as well as lower miles per galon. 
+  +  Cars in cluster 4 use to have been sold between 2008 and 2016. They have higher taxes and mileage than the mean, as well as lower miles per galon. Automatic and BMW cars are overrepresented.
   
-  f.tax-(155,580]               98.7893462  8.705542  
-  [2008,2016]                 86.6828087 34.160463
-  f.mpg-[20,44.8]               55.6900726 24.545079
-  f.mil-(3.45e+04,1.19e+05] 53.0266344 23.573201
   
 * Cluster 5
   +  Cars in cluster 5 use to have been sold between 2008 and 2016. They are characterized for having manual transmission and using petrol. Besides, they have low taxes and are super cheap cars, and use to be VW.
-  
-  super cheap                 83.1444759 18.879239
-  f.Trans-Manual        90.0849858 34.822167
-  VW                    78.7535411 30.500414
-  f.tax-[0,125]                 74.9291785 28.908189
-  [2008,2016]                 71.6713881 34.160463 1.431003e-108
-  f.Fuel-Petrol             74.6458924 41.459884  1.361886e-83
+
   
 * Cluster 6
   + Cars in cluster 6 use to have been sold between 2008 and 2016. They are characterized for using diesel, having high miles per galon and very high mileage. Besides, they have low taxes and cheap cars are overrepresented.
-  
-  f.tax-[0,125]                 91.1196911 28.908189
-  [2008,2016]                 90.7335907 34.160463 
-  f.mpg-(61.4,88.3]             70.0128700 23.738627
-  f.mil-(3.45e+04,1.19e+05] 68.3397683 23.573201 4.286891e-193
-  f.Fuel-Diesel             92.7927928 57.237386 2.215152e-126
-  cheap                       52.7670528 20.326716 1.797663e-111
+
   
 We now proceed to see the quantitative variables that characterizes the clusters. 
 
@@ -962,34 +897,31 @@ We now proceed to see the quantitative variables that characterizes the clusters
 res.hcmc$desc.var$quanti.var
 ```
 
-The quantitative variables that more characterize the clusters are **price** and **inconsistencies**. It has to be told that they are the only quantitative variables.
+The quantitative variable that only characterizes the clusters is **price**, as variable "inconsistencies" has a very low eta2 value. It has to be told that they are the only quantitative variables included in the MCA as supplementary.
 
 ```{r}
 res.hcmc$desc.var$quanti
 ```
 
 * Cluster 1
-  + price 36.76681         33004.64     21154.51
+  + High price, 11846 dollars more than the average price.
   
 * Cluster 2
-  + price           17.978281     2.493690e+04 2.115451e+04
-  inconsistencies -3.610123     6.906077e-03 1.840364e-02
+  + Price 3782 dollars higher than the average price.
   
 * Cluster 3
-  + price -6.324677         19119.26     21154.51
+  + Price 2035 dollars lower than the average price.
 
 * Cluster 4
-  + Sin datos
+  + Price very similar to the average price.
   
 * Cluster 5
-  + price -31.41406         10704.24     21154.51
+  + Price 10450 dollars lower than the average price.
   
 * Cluster 6
-  +   inconsistencies   5.057476     4.247104e-02 1.840364e-02
-  price           -20.891475     1.458703e+04 2.115451e+04
+  + Price 6567 dollars lower than the average price.
 
-### desc.ind ###
-### C. The description of the clusters by the individuals ###
+## C. The description of the clusters by the individuals
 ```{r}
 res.hcmc$desc.ind$para
 ```
@@ -1039,3 +971,11 @@ summary(df[c(3191,2225,2320,2491,2568),])
 ```
 
 We can see that all of them were sold in 2013, 2015 or 2016. They use to have semiautomatic transmission and use diesel. It can be also highlighted that they have high mileage, so they are very used cars. Besides, they use to be cheap cars, and all of them are Mercedes.
+
+
+
+## Comparison of clusters obtained after K-Means (based on PCA)
+In general, we get similar results from our Kmeans using PCA and from our HCMC. From our HCMC we get 5 clusters characterized by the price, year of selling and mileage of the cars where in the Kmeans we get 3 clusters where those variables are also a main quality. From our HCMC we also get a cluster characterized by high taxes and mileage and low mpg (cluster 4). Low miles per gallon means high consumption so therefore that is why we could see higher taxes in those cars. In contrast we did not see such cluster in the Kmeans, but we did see a cluster, for example, that was characterized by its transmission, fuel and type of engine (cluster 2). 
+
+
+
