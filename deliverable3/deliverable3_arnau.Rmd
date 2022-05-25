@@ -96,10 +96,6 @@ rm(list=ls())                       # Clean workspace
 filepath <- "C:/Users/Arnau/Desktop/adei/deliverable3/"
 load(paste0(filepath,"5000cars_clean.RData"))
 
-
-# dim(df)       # Displays the sample size
-# names(df)     # Displays the names of the sample variables
-# summary(df)   
 ```
 
 # Quantitative Logistics Regression
@@ -273,10 +269,23 @@ We can see that all the variables from the model show linear residuals because w
 
 ```{r}
 marginalModelPlots(m3)
+```
+Marginal model plots display the marginal relationship between the response and each predictor in a regression model. Marginal model plots display the dependent variable on each vertical axis and each independent variable on a horizontal axis.
+There is one marginal model plot for each independent variable and one additional plot that displays the predicted values on the horizontal axis. Each plot contains a scatter plot of the two variables, a smooth fit function for the variables in the plot (labeled "Data"), and a function that displays the predicted values as a function of the horizontal axis variable (labeled "Model"). When the two functions are similar in each of the graphs, there is evidence that the model fits well. When the two functions differ in at least one of the graphs, there is evidence that the model does not fit well. We can see that our model fits well with the data.
+
+```{r}
 avPlots(m3,id=list(method=hatvalues(m3),n=5))
 crPlots(m3,id=list(method=cooks.distance(m3),n=5))
-```
+library(effects)
+plot(allEffects(m3))
 
+```
+Form the effect plots We see that our model defines the following:
+
+* the log(price) decreases in a linear way as the mileage grows 
+* the log(price) increases in a logarithmic way as the tax grows
+* the log(price) decreases in a exponential way as the mpg grows
+* the log(price) decreases in a quadratic way (-x^2) as the years_after_sell grows
 
 ## Adding factors to the model
 
@@ -303,22 +312,6 @@ par(mfrow=c(1,1))
 ```
 We can see that with this new model is fully homoscesdastic, and it is also normally distributed.
 
-```{r}
-library(effects)
-plot(allEffects(m4))
-```
-We see that our model defines the following:
-
-* the log(price) decreases in a reciprocal way (1/x, x>0) as the mileage grows 
-* the log(price) decreases in a linear way as the tax grows
-* the log(price) decreases in a linear way as the mpg grows
-* the log(price) decreases in a reciprocal way (1/x, x<0) as the years_after_sell grows
-* the log(price) decreases in a reciprocal way (1/x, x<0) as the years_after_sell grows
-* the log(price) is higher with diesel and hybrid cars than petrol cars
-* the log(price) is higher with automatic and semi-automatic cars than manual cars
-* the log(price) increases in a linear way as the size of the engine grows
-* the log(price) is higher with BMW, Merc and Audi cars than VW cars
-
 ### Adding interactions 
 
 We now have built a very strong model with high predictive power, but we could exploit the interactions between the factor variables to increase the accuracy of the model.
@@ -327,35 +320,34 @@ m5<-update(m3, ~.+fuelType*(engineSize+transmission+manufacturer)^2, data=df_cle
 summary(m5)
 #we will perform a step to remove the insignificant interactions from our model
 m5_aux <- step( m5, k=log(nrow(df_clean)))
-#from the step function we are left with these model
+#from the step function we are left with this model
 m5 <- lm(log(price) ~ mileage + sqrt(tax) + I(mpg^-2) + I(years_after_sell^2) + fuelType + engineSize + transmission + manufacturer + engineSize:manufacturer + fuelType:engineSize+ fuelType:manufacturer + fuelType:engineSize:manufacturer, data=df_clean)
 Anova(m5)
 #we see from the Anova that the interaction between fuelType and engineSize has no relevancy, so we will remove it from our model
 m5 <- lm(log(price) ~ mileage + sqrt(tax) + I(mpg^-2) + I(years_after_sell^2) + fuelType + engineSize + transmission + manufacturer + engineSize:manufacturer + fuelType:manufacturer + fuelType:engineSize:manufacturer, data=df_clean)
 ```
 
-We will now consider adding an interaction between a factor and a covariate. To choose the best pairing, we should join the couple of variables with the worst correlation in other to create a new sort of variable that will give greater information to our model. Conversely, if we join 2 variables with strong correlation, we would be just adding redundant information because 1 variable explaing the other. From our previous analyses, we found that tax and manufacturer were not very correlated so we will pair those 2 variables.
+We will now consider adding an interaction between a factor and a covariate. To choose the best pairing, we should join the couple of variables with the worst correlation in order to create a new sort of variable that will give greater information to our model. On the other hand, if we join 2 variables with strong correlation, we would be just adding redundant information because 1 variable explaing the other. From our previous analyses, we found that tax and manufacturer were not very correlated so we will pair those 2 variables.
 ```{r}
-
 kruskal.test(df_clean$tax~df_clean$manufacturer)
-boxplot(df_clean$tax~df_clean$manufacturer)
+boxplot(df_clean$tax~df_clean$manufacturer) #not so strong correlation
 m6 <- update(m5, ~.+tax:manufacturer, data=df_clean)
 summary(m6)
 ```
 
 
 
-We will now compare model 4 and model 6 to see if the upgrade is worth it
+We will now compare model 4 and model 6 to see if the upgrade is worth it.
 ```{r}
 #let's see if our model with improved interactions offers some difference from our previous model
 anova(m6,m4) #it does
 
 #let's compare the AIC of both models to see which has the better fit
-abs(AIC(m6, m4)) #model 5_v2 offers a better fit
-abs(BIC(m6, m4)) #model 5_v2 offers a better fit
-#model 6 = 0.8446
+abs(AIC(m6, m4)) #model 6 offers a better fit
+abs(BIC(m6, m4)) #model 6 offers a better fit
+#model 6 = 0.843
 #model 4 = 0.8356
-#model 5_v2 also offers a greater R2, so we will stay with model 5
+#model 6 also offers a greater R2, so we will stay with model 6
 
 ```
 
@@ -367,7 +359,7 @@ plot(m6,id.n=0)
 par(mfrow=c(1,1))
 
 ```
-In the residual plots we can see the same patterns as with our previous models: the model checks the linear hypothesis, presents homoscedasticity and normality. This suggests a level of remarkable consistency with the predictions of the model. We can also see some high residuals, despite having treated outlier observations during preprocessing and having eliminated multivariate outliers.
+In the residual plots we can see the same patterns as with our previous models: the model checks the linear hypothesis, presents homoscedasticity and normality. This suggests a level of remarkable consistency with the predictions of the model. We can also see some high residuals, despite having treated outlying observations during preprocessing and having eliminated multivariate outliers.
 
 In order to the fit of our model we will treat influential observations. Influence is the combination of the leverage and outlierness of an observation.
 * Leverage: An observation with an extreme value on a predictor variable is a point with high leverage. Leverage is a measure of how far an independent variable deviates from its mean. High leverage points can have a great amount of effect on the estimate of regression coefficients.
@@ -375,8 +367,6 @@ In order to the fit of our model we will treat influential observations. Influen
 
 ```{r}
 library(olsrr)
-library(VGAM)
-ols_plot_cooksd_bar( m6 )
 hat.plot <-function(fit) {
               p <- length(coefficients(fit))
               n <- length(fitted(fit))
@@ -385,14 +375,14 @@ hat.plot <-function(fit) {
 }
 hat.plot(m6)
 ```
-As a priori observation of influentials we will use the hat value that is the most common measure of leverage. From the hat plot generated we can see we have a lot of observations with high leverage.
+As a priori observation of influence we will use the hat value that is the most common measure of leverage. From the hat plot generated we can see we have a lot of observations with high leverage (the points outside the red line).
 
 ```{r}
 ols_plot_cooksd_chart(m6)
 ```
-As a posteriori observation of influentials we will use the cook's distance that is the most common measure of leverage. From the hat plot generated we can see we have a lot of observations with high leverage.
+As a posteriori observation of influence we will use the cook's distance because it is the most common measure of influence. From the cook's D chart generated we can see we have a lot of observations with high influential level.
 
-Finally to choose the infulential observations we will use Cook's distance because it offers a consistent method for detecting them. We could use a mixture of hat values (leverage obs.) and rstudent residuals (outliying obs.) to predict influential observations, but it is not as efficient and reliable.
+Finally to choose the influential observations we will use Cook's distance because it offers a consistent method for detecting them. We could use a mixture of hat values (leverage obs.) and rstudent residuals (outlying obs.) to predict influential observations, but it is not as efficient and reliable.
 ```{r}
 # Define initial parameters to calculate obs. with high leverage:
 p <-length(m6$coefficients)
@@ -406,7 +396,7 @@ ll_priori_influential <- which(abs(hatvalues(m6))>hat_param*(p/n))
 length(ll_priori_influential)
 ll_rst <- which(abs(rstudent(m6))>3);
 length(ll_rst)
-ll_hat_rst <- unique(c(ll_priori_influential,llres))
+ll_hat_rst <- unique(c(ll_priori_influential,ll_rst))
 length(ll_hat_rst)
 
 # A posteriori influential observation:
@@ -430,17 +420,18 @@ As expected, the model with the removal of influential data using cook's distanc
 Anova(m7)
 #all variables and interactions are relevant
 par(mfrow=c(1,1))
-plot(allEffects(m5), selection=1)
-plot(allEffects(m5), selection=2)
-plot(allEffects(m5), selection=3)
-plot(allEffects(m5), selection=4)
-plot(allEffects(m5), selection=5)
-plot(allEffects(m5), selection=6)
+plot(allEffects(m7), selection=1)
+plot(allEffects(m7), selection=2)
+plot(allEffects(m7), selection=3)
+plot(allEffects(m7), selection=4)
+plot(allEffects(m7), selection=5)
+plot(allEffects(m7), selection=6)
+plot(allEffects(m7), selection=7)
 ```
 We see that our model defines the following:
 
 * the log(price) decreases in a linear way as the mileage grows
-* the log(price) increases in a logaritmic way as the tax grows
+* the log(price) increases as tax increases until tax=140, then log(price) decreases as tax increases
 * the log(price) decreases in an exponential way as the mpg grows
 * the log(price) decreases in a quadratic way (-x^2) as the years_after_sell grows
 * the log(price) is higher with BMW, Merc and Audi cars than VW cars
@@ -459,9 +450,7 @@ In the residual plots we can see the same patter as before, the model presents h
 ```{r}
 marginalModelPlots(m7)
 ```
-Marginal model plots display the marginal relationship between the response and each predictor in a regression model. Marginal model plots display the dependent variable on each vertical axis and each independent variable on a horizontal axis.
-There is one marginal model plot for each independent variable and one additional plot that displays the predicted values on the horizontal axis. Each plot contains a scatter plot of the two variables, a smooth fit function for the variables in the plot (labeled "Data"), and a function that displays the predicted values as a function of the horizontal axis variable (labeled "Model"). When the two functions are similar in each of the graphs, there is evidence that the model fits well. When the two functions differ in at least one of the graphs, there is evidence that the model does not fit well.
-We can see from our plots that the model fits perfectly.
+We can see from our plots that the model fits perfectly with the data.
 
 ```{r}
 #avPlots(m7)
@@ -472,14 +461,19 @@ influencePlot(m7, id=list(n=10))
 From a look at the influence plot, we can see a clar difference from the influence plot of model6. We can see now that we do not have any influential observation. We only have some obs. with some leverage but without being outliers and vice versa.
 
 ```{r}
-res.pca <- PCA(df[c(5,7,8,13)], graph=FALSE )
-plot(res.pca$ind$coord[,1], log(df$price), pch=19,col="darkblue", main="PCA of variables vs Actual/Predicted price")
-points(res.pca$ind$coord[,1], m3$fitted.values, col="red", pch=20)
+df_clean2=df_clean[-ll_posteriori_influential,]
+res.pca <- PCA(df_clean2[c(5,7,8,13)], graph=FALSE )
+plot(res.pca$ind$coord[,1], log(df_clean2$price), pch=19,col="darkblue", main="PCA of variables vs Actual/Predicted price")
+points(res.pca$ind$coord[,1], m7$fitted.values, col="red", pch=20)
 legend("topright", legend=c("Actual", "Predicted"),
        col=c("darkblue", "red"), pch=19, cex=0.8,
        title="Point types")
-```
 
+#plot(x=c(1:length(m7$fitted.values)), log(df_clean2$price), col="darkgreen", pch=20)
+#points(x=c(1:length(m7$fitted.values)), y=m7$fitted.values, col="red", pch=19)
+
+```
+As a final experiment to see how the model was behaving, we performed a pca with just numeric variables and we plotted the first dimension of the pca in the x-axis and the actual price and predicted price on the y-axis. We can see from our graph that our model does very good predictions as it almost fits all the data. With a perfect model, we would have a perfect overlapping of the 2 points.
 
 
 
