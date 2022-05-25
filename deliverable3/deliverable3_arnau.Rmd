@@ -222,12 +222,12 @@ summary(m3)
 Checking if the transformations suggested by boxTidwell are actually relevant.
 ```{r}
 anova(m2, m3)
-abs(AIC(m2, m3)) #model 2 offers a better fit
-abs(BIC(m2, m3)) #model 2 offers a better fit
+abs(AIC(m2, m3)) #model 3 offers a better fit
+abs(BIC(m2, m3)) #model 3 offers a better fit
 ```
-The anova test shows that the 2 models are equal and from the AIC and the BIC we get that model 2 offers a better fit. The transformations suggested by boxtidwell were not very decent. 
+The anova test shows that the 2 models are equal and from the AIC and the BIC we get that model 3 offers a better fit.
 
-Let's try to remove multivariate outliers from the model and perform boxTidwell again
+Let's try to remove multivariate outliers from the model and perform boxTidwell again.
 ```{r}
 df_clean = df[!df$mout=="MvOut.Yes",]
 m3<-lm(log(price)~mileage+tax+mpg+years_after_sell,data=df_clean)
@@ -243,7 +243,7 @@ m3_aux<-lm(log(price)~mileage+sqrt(tax)+I(mpg^-2)+I(years_after_sell^2),data=df_
 summary(m3_aux)
 m3 <- m3_aux
 ```
-We will keep the new model3 as it offers a greater r-squared than model 2 and will have a better fit with residuals.
+We will keep the new model3 as it offers a greater r-squared than model 2 and has a better fit with residuals and AIC score.
 
 
 #### Small validation of our model before adding factors
@@ -343,13 +343,13 @@ We will now compare model 4 and model 6 to see if the upgrade is worth it.
 anova(m6,m4) #it does
 
 #let's compare the AIC of both models to see which has the better fit
-abs(AIC(m6, m4)) #model 6 offers a better fit
-abs(BIC(m6, m4)) #model 6 offers a better fit
+abs(AIC(m6, m4)) #model 4 offers a better fit
+abs(BIC(m6, m4)) #model 4 offers a better fit
 #model 6 = 0.843
 #model 4 = 0.8356
-#model 6 also offers a greater R2, so we will stay with model 6
-
 ```
+Model 4 also offers a greater overall fit as the AIC & BIC scores are greater, but model 6 offers a greater residual squared score, so we will stay with model 6 just for performance reasons.
+
 
 ## Treatment of influential data
 
