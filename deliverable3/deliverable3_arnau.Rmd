@@ -388,13 +388,18 @@ Finally to choose the influential observations we will use Cook's distance becau
 p <-length(m6$coefficients)
 n <- length(m6$fitted.values)
 hat_param <- 3
-#we use as a threshold to lavel the leverage of the obs 3*p/n because we have a large dataset
+#we use as a threshold to label the leverage of the obs 3*p/n because we have a large dataset
 
 # A priori influential observation
 influencePlot(m6, id=list(n=10))
 ll_priori_influential <- which(abs(hatvalues(m6))>hat_param*(p/n))
 length(ll_priori_influential)
-ll_rst <- which(abs(rstudent(m6))>3);
+boxplot(abs(rstudent(m6)))
+quants_rst <- calcQ(abs(rstudent(m6)))
+abline(h=quants_rst$souts, col="red")
+quants_rst$souts
+#let's choose as rstudent threshold the severe outlier threshold
+ll_rst <- which(abs(rstudent(m6))>quants_rst$souts);
 length(ll_rst)
 ll_hat_rst <- unique(c(ll_priori_influential,ll_rst))
 length(ll_hat_rst)
@@ -402,7 +407,7 @@ length(ll_hat_rst)
 # A posteriori influential observation:
 ll_posteriori_influential<-which(abs(cooks.distance(m6))>(4/(n-p)))
 length(ll_posteriori_influential)
-
+#a general rule of thumb is that D(i) > 4/(n-p) is a good threshold for determining highly influential points for cook's distance
 
 m7_hat_rst<-update(m6, data=df_clean[-ll_hat_rst,])
 summary(m7_hat_rst)
@@ -473,8 +478,16 @@ legend("topright", legend=c("Actual", "Predicted"),
 #points(x=c(1:length(m7$fitted.values)), y=m7$fitted.values, col="red", pch=19)
 
 ```
-As a final experiment to see how the model was behaving, we performed a pca with just numeric variables and we plotted the first dimension of the pca in the x-axis and the actual price and predicted price on the y-axis. We can see from our graph that our model does very good predictions as it almost fits all the data. With a perfect model, we would have a perfect overlapping of the 2 points.
+As an experiment to see how the model was behaving, we performed a pca with just numeric variables and we plotted the first dimension of the pca in the x-axis and the actual price and predicted price on the y-axis. We can see from our graph that our model does very good predictions as it almost fits all the data. With a perfect model, we would have a perfect overlapping of the 2 points.
 
+As a final experiment to see a practical usage of linear regression, we will try to predict the price of a used Audi Q3 from the UK as our dataset is from the UK. The used car can be found here: https://www.autotrader.co.uk/car-details/202205296279195 with its specifications being imputed in the predict funcion.
+```{r}
+pre <- predict(m7, newdata = data.frame(transmission="f.Trans-Automatic", mileage=66.579, fuelType="f.Fuel-Petrol", tax=220, mpg=42.80, engineSize="small_engine", manufacturer="Audi", years_after_sell=6), interval = "prediction")
 
+#we transform the prediction from log(price) to normal price
+I(exp(1)^pre)
+error <- (18950 - 21141.53)/18950 *100; error
+```
+We get as a result a 95% confidence interval of [15625.2 28605.34] with the actual predicted price being 21141.53 real price being £18,950 so our model has an error of 11.5%, this is more or less the expected error because of our model expains 87.45% of the variability.
 
 
