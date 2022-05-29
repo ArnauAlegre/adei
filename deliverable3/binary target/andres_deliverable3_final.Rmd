@@ -1,0 +1,554 @@
+---
+title: "Load Prepared Data and Model Binary Outcome"
+author: "Lidia Montero"
+date: \today
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    toc_depth: 4
+  html_document:
+    toc: no
+    toc_depth: '4'
+  word_document:
+    toc: no
+    toc_depth: '4'
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
+fontsize: 18pt
+subtitle: 'Laboratori 10 - MLGz'
+classoption: a4paper
+editor_options: 
+  chunk_output_type: console
+---
+
+# Presentation - Títol nivell 1
+## R Markdowns document - Títol nivell 2
+
+This is an R Markdown document. 
+We are showing some examples of GLMz. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>. Use * to provide emphasis such as *italics* and **bold**.
+
+Create lists: Unordered * and +     or   ordered   1. 2.  
+
+  1. Item 1
+  2. Item 2
+    + Item 2a
+    + Item 2b
+
+# Header 1
+## Header 2
+
+## Data Description: 100,000 UK Used Car Data set
+ 
+This data dictionary describes data  (https://www.kaggle.com/adityadesai13/used-car-dataset-ford-and-mercedes) - A sample of 5000 trips has been randomly selected from Mercedes, BMW, Volkwagen and Audi manufacturers. So, firstly you have to combine used car from the 4 manufacturers into 1 dataframe.
+
+The cars with engine size 0 are in fact electric cars, nevertheless Mercedes C class, and other given cars are not electric cars,so data imputation is requered. 
+
+
+  -   manufacturer	Factor: Audi, BMW, Mercedes or Volkswagen
+  -   model	Car model
+  -   year	registration year
+  -   price	price in £
+  -   transmission	type of gearbox
+  -   mileage	distance used
+  -   fuelType	engine fuel
+  -   tax	road tax
+  -   mpg	Consumption in miles per gallon   
+  -   engineSize	size in litres
+
+
+# Load Required Packages: to be increased over the course
+
+```{r}
+# Load Required Packages: to be increased over the course
+options(contrasts=c("contr.treatment","contr.treatment"))
+
+requiredPackages <- c("effects","FactoMineR","car", "factoextra","RColorBrewer","ggplot2","dplyr","ggmap","ggthemes","knitr", "lmtest","effects", "statmod", "DescTools","ResourceSelection","chemometrics","missMDA")
+
+#use this function to check if each package is on the local machine
+#if a package is installed, it will be loaded
+#if any are not, the missing package(s) will be installed and loaded
+package.check <- lapply(requiredPackages, FUN = function(x) {
+  if (!require(x, character.only = TRUE)) {
+    install.packages(x, dependencies = TRUE)
+    library(x, character.only = TRUE)
+  }
+})
+#verify they are loaded
+search()
+
+```
+
+## Select a sample of 5000 records
+
+```{r}
+# Clear plots
+if(!is.null(dev.list())) dev.off()
+
+# Clean workspace
+rm(list=ls())
+
+setwd("C:/Users/TOREROS-II/Documents/GitHub/adei/adei/deliverable3/binary target")
+filepath<-"E:/Docencia_UPC/GEI-ADEI/Lab 10/"
+
+load(paste0(filepath,"MyOldCars-1000Clean.RData"))
+```
+
+# Split into train and test:
+
+```{r}
+# 80% train sample and 20% test sample
+llwork <- sample(1:nrow(df),round(0.80*nrow(df),0))
+
+dfall<-df
+df_train <- dfall[llwork,]
+df_test <-dfall[-llwork,]
+```
+
+We split our data in to parts, an 80% will be used to train the model and the other 20% to test it.
+
+We are gonna follow the next iterations to get the best model to predict the binary variable Audi:
+
+1.  Using numerical explanatory variables
+2.	Introducing transformations
+3.	Excluding multivariate outliers
+4.	Excluding not contributory variables
+5.	Adding factors
+6.	Introducing interactions
+7.	Eliminating influential individuals
+
+##1.Using numerical explanatory variables
+First of all we will introduce all the numeric variables to our model.
+
+```{r}
+vars_con
+
+ll<-which(df_train$tax==0);ll
+df$tax[ll]<-0.5
+
+m1<-glm(Audi~price+mileage+tax+mpg+years_after_sell,family="binomial",data=df_train)
+summary(m1)
+vif(m1)
+```
+
+As we can see all variables contribute to the model except from years_after_sell, but we won't exclude it from the model because maybe including factors or interactions to the model it gains relevance. 
+The reduction of residual deviance from the null model is 4232.9-4112.8=120.1. 
+
+Interpreting the estimate of the explanatory variables we can see that when price, mileage and years_after_sell increase the probability of a car of being Audi increases. While tax and mpg have the opposite effect.
+
+None of the variables of our model have a vif greater than 5 so they are independent with each other.
+
+```{r}
+residualPlots(m1,id=list(method=cooks.distance(m1),n=10))
+marginalModelPlots(m1)
+```
+
+The variables price, mileage and years_after_sell doesn't fit well the data, so we will have to apply transformations.
+
+```{r}
+library(effects)
+plot(allEffects(m1))
+crPlots(m1,id=list(method=cooks.distance(m1),n=5))
+```
+
+Form the effect plots we see that our model defines the following:
+
+* the probability of being Audi increases as the price grows 
+* the probability of being Audi increases as the mileage grows
+* the probability of being Audi decreases as the tax grows
+* the probability of being Audi decreases as the mpg grows
+* the probability of being Audi increases as the years_after_sell grows
+
+This corroborates the information seen in the summary about the estimate of the variables.
+
+##2.Introducing transformations
+
+For the 2nd model we will introduce the polynomial transformation to all the variables and keep the contributory ones.
+ 
+```{r}
+m2 <- glm(Audi~poly(price, 2)+poly(mileage,2)+poly(tax,2)+poly(mpg,2)+poly(years_after_sell,2),family="binomial",data=df_train)
+summary(m2)
+```
+
+The transformations in the variables tax, mpg and years_after_sell are not contributory to the model, we will exclude them according to the output of a step. The reduction of residual deviance from the null model is 4232.9-4079.4=153.5. 
+
+```{r}
+anova(m2, m1, test="LR")
+AIC(m1,m2)
+```
+
+Nevertheless, the output of the anova test indicates us that the reduction of residuals deviance is significant because Pr(>Chi) = 3.218e-06 < 0.05.
+
+Moreover, the AIC has been reduced.
+
+Before excluding the not influential transformations, we will use the data_train without the multivariate outliers to modelize because they could affecting negatively to our model.
+
+##3.Excluding multivariate outliers
+
+```{r}
+m3<-glm(Audi~poly(price,2)+poly(mileage,2)+poly(tax,2)+poly(mpg,2)+poly(years_after_sell,2),family="binomial",data=df_train[!df_train$mout=="MvOut.Yes",])
+summary(m3)
+```
+
+Despite of excluding the multivariate outliers the transformations without significance continue to not contribute to the model. The reduction of residual deviance from the null model is 4076.3-3891.3=185. 
+
+```{r}
+AIC(m1, m2, m3)
+```
+
+The AIC has been reduced, so excluding the multivariate outliers has a good effect on the model.
+
+Now we will use function step to improve our model. The function step select a formula-based model by the best AIC.
+
+```{r}
+m4 <- step(m3)
+summary(m4)
+```
+
+The function step has eliminated the variables poly(years_after_sell,2)1 and poly(years_after_sell,2)2. 
+
+```{r}
+anova(m3, m4, test="LR")
+AIC(m1, m2, m3, m4)
+```
+
+The residual deviance has increased (it's normal having less explanatory variables) but is not significant. We will keep m4 because it's AIC is lower than m2 and it is better to have less explanatory variables.
+
+##4.Excluding not contributory variables
+
+We will extract from the transformations that are not contributory: poly(tax,2)2 and poly(mpg,2)2.
+
+```{r}
+m5 <- glm(formula = Audi ~ poly(price, 2) + poly(mileage, 2) + tax + mpg, family = "binomial", data = df_train[!df_train$mout == "MvOut.Yes",])
+summary(m5)
+```
+
+Now all the variables of the model are contributory. The residual deviance has increased again but now we will check if it is significant.
+
+```{r}
+anova(m5, m4, test="LR")
+AIC(m1, m2, m3, m4, m5)
+```
+
+This increase of residual deviance isn't significant because Pr(>Chi) = 0.5148 > 0.05, so we can eliminate this variables without a major effect. 
+Moreover the AIC has been reduced so we will keep m5.
+
+##5.Adding factors
+
+The next model is gonna introduce factor variables.
+
+```{r}
+table(df_train$engineSize)
+```
+
+The factor variable engineSize has too many categories so we will reduce them to 3. 
+
+```{r}
+df_train$engineSize_f <- as.numeric(levels(df_train$engineSize))[df_train$engineSize]
+par(mfrow=c(1,1))
+hist(df_train$engineSize_f)
+quantile(df_train$engineSize_f, c(0.3333333,0.6666666,1))
+df_train$engineSize_f <- factor(cut(df_train$engineSize_f, breaks = c(0,1.6,2,10)))
+df_test$engineSize_f <- as.numeric(levels(df_test$engineSize))[df_test$engineSize]
+df_test$engineSize_f <- factor(cut(df_test$engineSize_f, breaks =  c(0,1.6,2,10)))
+table(df_train$engineSize_f)
+```
+
+By this way we create a new factor variable grouping the values of the variable engineSize.
+
+```{r}
+m6 <- update(m5, ~.+fuelType+transmission+engineSize_f,data=df_train[!df_train$mout=="MvOut.Yes",])
+vif(m6)
+summary(m6)
+```
+
+All factor variables contribute to the model except for the category fuelTypef.Fuel-Petrol of the factor variable fuelType, but as the other categories contribute we should keep it. Besides, we will check if the factor variables are contributory with the function Anova.
+The reduction of residual deviance from the null model is 4076.3-3581.2=495.1. 
+
+- The baseline of the variable fuelType is the category fuelTypef.Fuel-Diesel, and fuelTypef.Fuel-Petrol and fuelTypef.Fuel-Hybrid contribute negatively.
+- The baseline of the variable transmission is the category transmissionf.Trans-Manual, and transmissionf.Trans-Automatic and transmissionf.Trans-SemiAuto contribute negatively.
+- The baseline of the variable engineSize_f is the category engineSize_f(0,1.4] , and engineSize_f(1.4,2] and engineSize_f(2,10]  contribute negatively.
+
+None of the variables of our model have a vif greater than 5 so they are independent with each other.
+
+```{r}
+Anova(m6, test="LR")
+```
+
+All variables contribute to the model.
+
+```{r}
+anova(m6, m5, test="LR")
+AIC(m1, m2, m3, m4, m5, m6)
+```
+
+The reduction of the residual deviance is significant so we will keep m6. The AIC has also been reduced.
+
+```{r}
+residualPlots(m6,id=list(method=cooks.distance(m5),n=10))
+marginalModelPlots(m6)
+```
+
+The variables price and mileage are now better adapted to the model.
+
+```{r}
+avPlots(m5,id=list(method=hatvalues(m6),n=5))
+crPlots(m5,id=list(method=cooks.distance(m6),n=5))
+plot(allEffects(m6), selection = 5)
+```
+
+There is more probability of a car being Audi if it uses diesel or petrol than being Hybrid.
+
+```{r}
+plot(allEffects(m6), selection = 6)
+```
+
+There is more probability of a car being Audi if it has manual transmission.
+
+```{r}
+plot(allEffects(m6), selection = 7)
+```
+
+There is more probability of a car being Audi if it has a smaller engine.
+
+##6.Introducing interactions
+
+We are gonna introduce all the possible interactions and then use the step function to improve that model. After doing that we are gonna eliminate the not contributory variables that are yet in the model returned by the step function.
+
+```{r}
+m7 <- update(m6, ~.*(fuelType+transmission+engineSize_f)^2,data=df_train[!df_train$mout == "MvOut.Yes",])
+summary(m7)
+```
+
+The reduction of residual deviance from the null model is 4076.3-3194.0=882.3. 
+
+```{r}
+anova(m7,m6, test="LR")
+```
+
+This reduction is significant.
+
+```{r}
+Anova(m7, test="LR")
+```
+
+Not all the interactions contribute to the model so we are gonna execute a step.
+
+```{r}
+m8<- step(m7)
+summary(m8)
+anova(m8, m7, test="Chisq")
+AIC(m1, m2, m3, m4, m5, m6, m7, m8)
+```
+
+As it is normal when we eliminate explanatory variables the residual deviance has grown but that increase of in not significant because Pr(>Chi) = 0.3148 > 0.05. Moreover, the AIC has been reduced so we will keep m8.
+
+```{r}
+Anova(m8, test="LR")
+```
+
+But as we still have there are some interactions that doesn't contribute to the model so we are gonna eliminate them.
+
+According to the summary we are going to eliminate the interactions transmission:engineSize_f, poly(price, 2):engineSize_f and mpg:engineSize_f. We can not eliminate, for example the variable engineSize_f despite of not being contributory to the model, because it is included in the interaction fuelType:engineSize_f which is contributory. It happens the same with other variables.
+
+```{r}
+m9 <- glm(formula = Audi ~ poly(price, 2) + poly(mileage, 2) + tax + 
+    mpg + fuelType + transmission + engineSize_f + fuelType:transmission + 
+    fuelType:engineSize_f + poly(price, 
+    2):fuelType + poly(mileage, 
+    2):fuelType + poly(mileage, 2):engineSize_f + tax:fuelType + 
+    tax:engineSize_f + mpg:fuelType + mpg:transmission + 
+    poly(price, 2):fuelType:engineSize_f + poly(mileage, 2):fuelType:engineSize_f + 
+    mpg:fuelType:engineSize_f, family = "binomial", data = df_train[!df_train$mout == 
+    "MvOut.Yes",])
+
+summary(m9)
+Anova(m9, test="LR")
+anova(m9, m8, test="Chisq")
+
+AIC(m1, m2, m3, m4, m5, m6, m7 ,m8, m9)
+```
+
+The residual deviance increases as it is normal but in this case it is significant. The AIC also increases so we could consider m8 a worse model than m9 but we have to consider that when the model has a lot of variables AIC can have a strange behaviour, and we are more interested in reducing the numbre of explanatory variables. We will keep m9.
+
+
+##7. Eliminating influential individuals
+Finally, we will eliminate the influential individuals and give a diagnostic of the model.
+
+```{r}
+dfwork <- df_train[!df_train$mout=="MvOut.Yes",]
+
+Boxplot(abs(rstudent(m9)))
+llres <- which(abs(rstudent(m9))>2.6);llres
+```
+
+We will consider influential individuals those with an rstudent bigger than 2.6.
+
+```{r}
+Boxplot(hatvalues(m9))
+influencePlot(m9, id=list(n=10))
+```
+
+A priori influential individuals.
+
+```{r}
+Boxplot(cooks.distance(m9))
+llout<-which(abs(cooks.distance(m9))>5000);llout
+llrem<-unique(c(llout,llres));llrem
+```
+
+We will also consider influential individuals those with an cook distance bigger than 5000.
+
+```{r}
+m10<- glm(formula = Audi ~ poly(price, 2) + poly(mileage, 2) + tax + 
+    mpg + fuelType + transmission + engineSize_f + fuelType:transmission + 
+    fuelType:engineSize_f + poly(price, 
+    2):fuelType + poly(mileage, 
+    2):fuelType + poly(mileage, 2):engineSize_f + tax:fuelType + 
+    tax:engineSize_f + mpg:fuelType + mpg:transmission + 
+    poly(price, 2):fuelType:engineSize_f + poly(mileage, 2):fuelType:engineSize_f + 
+    mpg:fuelType:engineSize_f, family = "binomial", data=dfwork[-llrem,])
+```
+
+##8. Diagnostic
+
+```{r}
+summary(m10)
+AIC(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+```
+
+The reduction of residual deviance from the null model is 4037.9-3173.7=864.2. The AIC is 3301.7.
+
+```{r}
+Anova(m10)
+plot(allEffects(m10), selection = 2)
+```
+
+The probability of being audi es reduced when the cars use diesel or petrol and the tax increases.
+
+```{r}
+plot(allEffects(m10), selection = 5)
+```
+
+The probability of being audi es increases when the cars has a small engine, use petrol or diesel and the price increases.
+
+```{r}
+marginalModelPlots(m10)
+```
+
+The model is very well adapted to the data.
+
+```{r}
+residualPlots(m1,id=list(method=cooks.distance(m1),n=10))
+
+influencePlot(m10)
+outlierTest(m10)
+```
+
+The influence plot show us that has been a reduction of the influential individuals.
+
+##9.Goodness of fit and Predictive Capacity
+
+```{r}
+# H0: Model fits data
+pchisq(m10$null.deviance-m10$deviance, m10$df.null-m10$df.residual, lower.tail = FALSE)
+```
+
+The model fits well the data because 3.919645e-141 < 0.05 and we can accept H0. 
+
+```{r}
+X2m10<-sum((resid(m10,"pearson")^2));X2m10
+1-pchisq(X2m10, m10$df.res)
+
+library(DescTools)
+PseudoR2(m10, which='all')
+```
+
+This model obtains a PseudoR2 of McFadden of 0.214. According to this factor a value between 0.2 and 0.4 represents a model that fits excellently the data. 
+
+```{r}
+library(ResourceSelection)
+ht <- hoslem.test(m10$y, fitted(m10), g = 10); ht
+```
+
+This gives p-value=0.7045 > 0.05, indicating no evidence of poor fit.
+
+```{r}
+pred_test <- predict(m10, newdata=df_test, type="response")
+ht <- hoslem.test(df_test$Audi, pred_test); ht
+cbind(ht$observed, ht$expected)
+```
+
+As p-value = 2.2e-16 < 0.04 there is no evidence that m10 doesn't predict well the variable value of the variable Audi of the cars on df_test.
+
+```{r}
+# ROC Curve
+library("pROC")
+
+par(pty = "s")
+roc(df_test$Audi, pred_test, plot = TRUE, legacy.axes = TRUE, percent = TRUE, col = "#377eb8", xlab="False Positive Percentage", ylab="True Positive Percentage", print.auc = TRUE)
+
+pred_test_m9 <- predict(m9, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m9, percent = TRUE, col = "#4daf4a", print.auc = TRUE, add = TRUE, print.auc.y = 45)
+
+pred_test_m8 <- predict(m8, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m8, percent = TRUE, col = "#ff0000", print.auc = TRUE, add = TRUE, print.auc.y = 40)
+
+pred_test_m7 <- predict(m7, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m7, percent = TRUE, col = "#00EFFF", print.auc = TRUE, add = TRUE, print.auc.y = 35)
+
+pred_test_m6 <- predict(m6, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m6, percent = TRUE, col = "#F700FF", print.auc = TRUE, add = TRUE, print.auc.y = 30)
+
+pred_test_m5 <- predict(m5, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m5, percent = TRUE, col = "#FFCD00", print.auc = TRUE, add = TRUE, print.auc.y = 25)
+
+pred_test_m4 <- predict(m4, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m4, percent = TRUE, col = "#00FF89", print.auc = TRUE, add = TRUE, print.auc.y = 20)
+
+pred_test_m3 <- predict(m3, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m3, percent = TRUE, col = "#00BCFF", print.auc = TRUE, add = TRUE, print.auc.y = 15)
+
+pred_test_m2 <- predict(m2, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m2, percent = TRUE, col = "#9A00FF", print.auc = TRUE, add = TRUE, print.auc.y = 10)
+
+pred_test_m1 <- predict(m1, newdata=df_test, type="response")
+
+plot.roc(df_test$Audi, pred_test_m1, percent = TRUE, col = "#D5FF00", print.auc = TRUE, add = TRUE, print.auc.y = 5)
+
+legend("bottomright", legend=c("m10","m9","m8","m7","m6","m5","m4","m3","m2","m1"), col=c("#377eb8","#4daf4a","#ff0000","#00EFFF","#F700FF","#FFCD00","#00FF89","#00BCFF","#9A00FF","#D5FF00"))
+
+legend("bottomright", legend=c("m10","m9","m8","m7","m6","m5","m4","m3","m2","m1"), col=c("#377eb8","#4daf4a","#ff0000","#00EFFF","#F700FF","#FFCD00","#00FF89","#00BCFF","#9A00FF","#D5FF00"), lwd=4)
+```
+
+With this graph we can be seen the ROC curve of all the models we have created. 
+
+The ROC curve create a graph were the value of the x represent the false positive rate (in our case expressed as a percentage), and the value of the y the true positive rate. These values change accordingly to the variation of the threshold.
+The best possible ROC curve would have a point where True Positive Rate = 1 and False Positive Rate = 0.
+
+From these type of graph we can calculate the AUC that is based on the area under the ROC curve. When the AUC is bigger the model predicts better.
+
+The best model based on the AUC is the last one, m10, with an AUC of 77.6%.
+
+```{r}
+# Confusion Table Analysis
+treshold <- 0.5
+audi.est <- ifelse(pred_test<treshold,0,1)
+tt<-table(audi.est,df_test$Audi);tt
+```
+
+We can see that our model predicts well when a car is not an Audi but not when it is with a threshold of 0.5. The thershold can be modified depending on our interests, if we are more interested in getting a better True Positive Rate or a lower False Positive Rate.
+
+```{r}
+100*sum(diag(tt))/sum(tt)
+```
+
+Our model has an accuracy of 80.1%.
+
