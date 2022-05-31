@@ -75,8 +75,8 @@ Volkswagen and Audi cars are to be considered).
 # Loading of Required Packages for the deliverable
 We load the necessary packages and set the working directory
 ```{r echo = T, results = 'hide', message=FALSE, error=FALSE, warning=FALSE}
-#setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
-setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
+setwd("C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1")
+#setwd("C:/Users/Arnau/Desktop/adei/deliverable1")
 # Load Required Packages
 options(contrasts=c("contr.treatment","contr.treatment"))
 requiredPackages <- c("missMDA","chemometrics","mvoutlier","effects","FactoMineR","car", "factoextra","RColorBrewer","dplyr","ggmap","ggthemes","knitr", "corrplot")
@@ -95,8 +95,8 @@ rm(list=ls())                       # Clean workspace
 
 Data: used_car_dataset.csv
 ```{r}
-#filepath<-"C:/Users/TOREROS-II/Documents/ANDRES/UNI/ADEI/trabajo/deliverable1"
-filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
+filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/adei"
+#filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size
@@ -133,11 +133,11 @@ countX <- function(x,X) { # Function to count a specific number of appearences
 }
 ```
 
-# Univariate Description and Preprocessing
+  # Univariate Description and Preprocessing
 
-## Variable initialization of missings, outliers and errors for columns
+## Variable initialization of missings, outliers and errors
 ```{r}
-jmis<-rep(0,2*ncol(df))  # columns - variables
+jmis<-rep(0,ncol(df))  # columns - variables
 
 mis1<-countNA(df)
 #mis1$mis_ind   # Number of missings for the current set of cars (observations)
@@ -146,32 +146,7 @@ mis1<-countNA(df)
 jouts<-rep(0,ncol(df))  # columns - variables
 
 jerrs<-rep(0,ncol(df))  # columns - variables
-```
 
-## Initialization of the response variable Price
-We know that the price should be positive, so we will treat as errors the prices <= 0. We don't count the errors by rows for the variable price because we erase that rows.
-```{r}
-summary(df$price)
-sel<-which(df$price <= 0)
-jerrs[which(colnames(df)=="price")] <- length(sel)
-#We will delete the rows with errors in the price because we cannot make imputations for our target variable.
-df <- df[which(df$price > 0), ]
-
-boxplot(df$price, col="cyan3")
-var_out<-calcQ(df$price)
-abline(h=var_out$souts,col="red")
-abline(h=var_out$souti,col="red")
-#We can see there are outliers in the dataset so we will treat them.
-#As this is the response variable, we will delete the outlier rows because we cannot delete the value and impute it.
-llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
-#iouts[llout] <- iouts[llout]+1
-jouts[which(colnames(df)=="price")]<-length(llout_price)
-df <- df[-llout_price, ]
-```
-
-## Variable initialization of missings, outliers and errors for rows
-Initialization of counts for missings, outliers and errors. All numerical variables have to be checked before.
-```{r}
 imis<-rep(0,nrow(df))  # rows - cars
 
 iouts<-rep(0,nrow(df))  # rows - cars
@@ -219,13 +194,21 @@ barplot(table(df$year), main="Barplot of sold year", col="darkslateblue")
 ### Price
 In orther to better analyze the price of the cars and to group them, we will create a categorical variable representing the price of the car.
 ```{r, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
-df$price_type <- df$price
-df$price_type[which(df$price >= var_out$min & df$price_type < var_out$q1)] <- "super cheap"
-df$price_type[which(df$price >= var_out$q1 & df$price_type < var_out$q2)] <- "cheap"
-df$price_type[which(df$price >= var_out$q2 & df$price_type < var_out$q3)] <- "expensive"
-df$price_type[which(df$price >= var_out$q3 & df$price_type < var_out$mouts)] <- "very expensive"
-df$price_type[which(df$price >= var_out$mouts )] <- "extremely expensive"
-table(df$price_type)
+df$f.price<-factor(cut(df$price/1000,breaks=c(quantile(df$price/1000,seq(0,1,0.2),na.rm=TRUE)), labels=c("super cheap", "cheap", "expensive", "very expensive", "extremely expensive"),include.lowest = T ))
+
+sel<-which(df$price <= 0)
+jerrs[which(colnames(df)=="price")] <- length(sel)
+
+df[which(df$price < 0), ] <- NA
+
+boxplot(df$price, main="Boxplot of price",col="cyan3")
+var_out<-calcQ(df$price)
+abline(h=var_out$souts,col="red")
+abline(h=var_out$souti,col="red")
+
+llout_price<-which((df$price > var_out$souts) | (df$price < var_out$souti ))
+jouts[which(colnames(df)=="price")]<-length(llout_price)
+iouts[llout_price] <- iouts[llout_price]+1
 ```
 
 
@@ -234,7 +217,7 @@ table(df$price_type)
 ```{r}
 df$transmission <- factor( df$transmission )
 levels( df$transmission )
-df$transmission <- factor( df$transmission, levels = c("Manual","Semi-Auto","Automatic"),labels = paste0("f.Trans-",c("Manual","SemiAuto","Automatic")))
+df$transmission <- factor(df$transmission, levels = c("Manual","Semi-Auto","Automatic"),labels = paste0("f.Trans-",c("Manual","SemiAuto","Automatic")))
 #All transmission not listed above have been replaced as NA
 ```
 
@@ -251,7 +234,6 @@ df[llout_mil,"mileage"] <- NA
 
 
 ### fuelType
-Andres
 ```{r}
 df$fuelType <- factor(df$fuelType)
 levels(df$fuelType)
@@ -261,7 +243,6 @@ df$fuelType <- factor( df$fuelType, levels = c("Diesel","Petrol","Hybrid"), labe
 
 
 ### Tax
-Andres
 ```{r}
 boxplot(df$tax, main="Boxplot of tax", col="cyan3")
 #df$year <- factor(df$year)
@@ -282,7 +263,6 @@ boxplot(df$tax, col="cyan3")
 ```
 
 ### MPG
-Andres
 ```{r}
 #Outliers are replaced by NA
 boxplot(df$mpg, col="cyan3")
@@ -297,7 +277,6 @@ df[llout_mpg,"mpg"] <- NA
 
 
 ### EngineSyze
-Andres --> contabilizar errores
 ```{r}
 df$engineSize <- factor(df$engineSize)
 levels(df$engineSize)
@@ -355,8 +334,8 @@ summary(df[,vars_dis])
 res.immca<-imputeMCA(df[,vars_dis],ncp=4)
 summary(res.immca$completeObs)
 # Check one by one (we only have enginesize, transmission & fuelType)
-barplot(table(df$engineSize), main="Barplot of engineSize before imputation")
-barplot(table(res.immca$completeObs[,"engineSize"]), main="Barplot of engineSize after imputation")
+pie(table(df$engineSize), main="Piechart of engineSize before imputation")
+pie(table(res.immca$completeObs[,"engineSize"]), main="Piechart of engineSize after imputation")
 barplot(table(df$transmission), 
         main="Barplot of transmission before imputation")
 barplot(table(res.immca$completeObs[,"transmission"]), main="Barplot of transmission after imputation")
@@ -444,11 +423,20 @@ Describe these variables, to which other variables exist higher associations.
 ## Compute the correlation with all other variables. Rank these variables according the correlation
 ```{r}
 df$inconsistencies <- imis+iouts+ierrs
-vars_quanti <- c(2,3,5,7,8,13,18)
-res <- cor(df[,vars_quanti])
-round(res, 2)
-corrplot(res)
+vars_con <- c(3,5,7,8,13,18)
+M = round(cor(df[,c(vars_con)], method="spearman"),dig=2)
+corrplot(M,  method = 'circle', insig='blank',
+         addCoef.col ='black', number.cex = 0.8, order = 'AOE', diag=FALSE)
 ```
+
+The variable year is correlated negatively with the variables years_after_sell and mileage, so it indicates that cars are cheaper when they are older or they are more used.
+
+Variable tax is positively correlated to the variable price and negatively with the variable mpg. Thus a car will have more taxes if it is expensive and less if spends low mpg.
+
+Inconsistencies is not correlated with any variable.
+
+The variable mpg is negatively correlated with price and tax, as we had seen. Moreover, is positively correlated with the variables mileage and years_after_sell. We can deduce that older cars and more used has a lower consume.
+
 
 ## Mean of missing/outliers/errors per groups
 Compute for every group of individuals (group of age, etc, …) the mean of missing/outliers/errors values. Rank the groups according the computed mean.
@@ -513,14 +501,14 @@ res.condes$quali # Global association to factors
 res.condes$category  # Partial association to significative levels in factors
 ```
 With this output we can see from different categories the mean difference in price compared to the mean price of the dataset
-The cars that have low mpg are more expensive.
-We can also see that the cars with an engine size = 4 has an estimate of +19400$
-We can also see that the cars with an engine size = 2.9 has an estimate of +19179$
-We can also see that the cars with an model=BMW- 7 Series has an estimate of +18054$
-We can also see that the cars with an model=Audi- Q8 has an estimate of +25943$
-We can also see that the cars with an engine size = 5.2 has an estimate of +32960$
-We can also see that the cars with an model=VW- Up has an estimate of -17472$
-We can also see that the cars with an engine size = 1.2 has an estimate of -15682$
+* The cars that have low mpg are more expensive.
+* We can also see that the cars with an engine size = 4 has an estimate of +19400$
+* We can also see that the cars with an engine size = 2.9 has an estimate of +19179$
+* We can also see that the cars with an model=BMW- 7 Series has an estimate of +18054$
+* We can also see that the cars with an model=Audi- Q8 has an estimate of +25943$
+* We can also see that the cars with an engine size = 5.2 has an estimate of +32960$
+* We can also see that the cars with an model=VW- Up has an estimate of -17472$
+* We can also see that the cars with an engine size = 1.2 has an estimate of -15682$
 
 
 ## Profiling of the categorical target variable "Audi"
