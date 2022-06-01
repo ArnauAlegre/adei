@@ -412,6 +412,16 @@ The variable price is strongly negatively related with the first dimension axis.
 
 The variable Audi has very similar centroids.
 
+## Visualization of Multivariate outliers
+```{r}
+res.pca<-PCA(df[,c(vars_res,vars_con, vars_dis)], quanti.sup = 1, quali.sup = c(2,8:11), graph = FALSE)
+plot(res.pca$ind$coord[,1], res.pca$ind$coord[,2], pch=19,col="darkblue", main="PCA of variables with MvOut")
+points(res.pca$ind$coord[llmout,1], res.pca$ind$coord[llmout,2], col="red", pch=20)
+legend("topright", legend=c("MvOut.No", "MvOut.Yes"),
+       col=c("darkblue", "red"), pch=19, cex=0.7,
+       title="Point types")
+```
+
 
 # Kmeans Classification
 We determined that we had to keep 3 dimensions of the PCA to maintain an inertia above 80%. Therefore we will have to use 3 dimensions for the computation of the Kmeans.

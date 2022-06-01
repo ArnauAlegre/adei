@@ -95,8 +95,8 @@ rm(list=ls())                       # Clean workspace
 
 Data: used_car_dataset.csv
 ```{r}
-filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/adei"
-#filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
+#filepath<-"C:/Users/TOREROS-II/Documents/GitHub/adei/adei"
+filepath<-"C:/Users/Arnau/Desktop/adei/deliverable1"
 df<-read.table(paste0(filepath,"/sample_5000.csv"),header=T, sep=",")[c(-1)]
 
 # dim(df)       # Displays the sample size

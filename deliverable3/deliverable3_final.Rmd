@@ -24,7 +24,7 @@ editor_options:
 ```{r setup, include=FALSE}
 library(knitr)
 library(formatR)
-knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=70),tidy=TRUE, warning = FALSE)
+knitr::opts_chunk$set(echo = TRUE, tidy.opts=list(width.cutoff=70),tidy=TRUE, warning = FALSE, message = FALSE)
 ```
 
 # Data description
@@ -98,7 +98,7 @@ load(paste0(filepath,"5000cars_clean.RData"))
 
 ```
 
-# Quantitative Logistics Regression
+# Linear Regression
 
 Before we begin to see correlations with our target (variable price), we should consider the normality of this.
 
@@ -110,9 +110,17 @@ curve(dnorm(x,mean=mm,sd=ss),col="red",lwd=2,lty=3, add=T)
 shapiro.test(df$price)
 ```
 
-Although the histogram of the variable price is not really symmetric, we see that the target price is normally distributed because in the shapiro test we get a p-value smaller than 0.01
-so we can reject the null hypothesis.
 We can see that our target variable of price is not normally distributed, as the histogram of the variable price is not symmetric and we get a p-value smaller than 0.01 in the shapiro wilk test so we can reject the null hypothesis of normality.
+
+As with all variables describing money, we can improve the distribution of our variable by applying a logarithmic transformation.
+```{r}
+hist(log(df$price),100,freq=F,col="darkslateblue",border = "darkslateblue")
+mm<-mean(log(df$price));ss<-sd(log(df$price))
+curve(dnorm(x,mean=mm,sd=ss),col="red",lwd=2,lty=3, add=T)
+shapiro.test(log(df$price))
+```
+Despite our transformation, we still don't achieve a normal distribution, as the sw test p-value is lower than 0.05 . 
+
 
 ### Symmetry
 ```{r}
@@ -212,18 +220,22 @@ boxTidwell(log(price)~mpg+years_after_sell+mileage, data=df)
 # Power transformations of the predictors in a linear model
 
 # Suggested by BoxTidwell
-m3<-lm(log(price)~I(mileage^3)+tax+I(mpg^-1)+I(years_after_sell^2),data=df)
+m3<-lm(log(price)~poly(mileage,3)+tax+I(mpg^-1)+poly(years_after_sell,2),data=df)
+summary(m3)
+```
+From the summary, we can see that all monomials from the polynomial transformations are relevant. 
+
+```{r}
 m3_aux <- step(m3, k=log(nrow(df)) ) #to see if we can reduce the model
 #step shows that no reduction is needed
-summary(m3)
 
 ```
 
 Checking if the transformations suggested by boxTidwell are actually relevant.
 ```{r}
 anova(m2, m3)
-abs(AIC(m2, m3)) #model 3 offers a better fit
-abs(BIC(m2, m3)) #model 3 offers a better fit
+AIC(m2, m3) #model 3 offers a better fit
+BIC(m2, m3) #model 3 offers a better fit
 ```
 The anova test shows that the 2 models are equal and from the AIC and the BIC we get that model 3 offers a better fit.
 
@@ -237,13 +249,15 @@ We can see from the summary that the mileage has lost some relevancy in the mode
 
 ```{r}
 boxTidwell(log(price)~mileage+tax+mpg+years_after_sell,data=df_clean)
-#we see from the boxtidwell output that the mileage does not need transformation and that the tax should be square rooted
+#we see from the boxtidwell output that the mileage p-value from mileage is greater than 0.05 so the variable would not need a transformation. We can also see that the tax should be square rooted
 boxTidwell(log(price)~mileage+sqrt(tax)+I(mpg^-2)+I(years_after_sell^2),data=df_clean)
-m3_aux<-lm(log(price)~mileage+sqrt(tax)+I(mpg^-2)+I(years_after_sell^2),data=df_clean)
+
+m3_aux<-lm(log(price)~mileage+sqrt(tax)+I(mpg^-2)+poly(years_after_sell,2),data=df_clean)
 summary(m3_aux)
 m3 <- m3_aux
+
 ```
-We will keep the new model3 as it offers a greater r-squared than model 2 and has a better fit with residuals and AIC score.
+We will keep the new model3 as it offers a greater r-squared than model 2 and has a better fit with residuals.
 
 
 #### Small validation of our model before adding factors
@@ -257,14 +271,14 @@ par(mfrow=c(1,1))
 library(lmtest)
 bptest(m3)
 ```
-In the residuals vs fitted models we can observe that  the mean residual doesn't change with the fitted values (and so is doesn't change with x), and the spread of the residuals (and hence of the y's about the fitted line) is consistent as the fitted values (or x) changes. That is, the spread is constant and so we have homoscedasticity.With the Breusch-Pagan test we get a p-value of 0.2125 so with a lot of confidence we don't reject the hypothesis of homoscedasticity. The model fits the linear hypothesis.
+In the residuals vs fitted models we can observe that  the mean residual doesn't change with the fitted values (and so is doesn't change with x), and the spread of the residuals (and hence of the y's about the fitted line) is consistent as the fitted values (or x) changes. That is, the spread is constant and so we have homoscedasticity.With the Breusch-Pagan test we get a p-value of 0.2073 so with a lot of confidence we don't reject the hypothesis of homoscedasticity. The model fits the linear hypothesis.
 About the test: The bp test statistic approximately follows a chi-square distribution. The null hypothesis for this test is that the error variances are all equal. More specifically, as Y increases, the variances increase (or decrease).
 In the Normal QQ plot we can see that values tend to drop in value in the left tail, this effect happens because our variable log(price) is left skewed. But the effect is not too drastic so we could accept that our distribution of residuals is normal.
 
 ```{r}
-residualPlots(m3,id=list(method=cooks.distance(m3),n=10))
+residualPlots(m3,id=list(method=cooks.distance(m3),n=5))
 ```
-We can see that all the variables from the model show linear residuals because we have applied the according transformation to all the variables.
+We can see that all the variables from the model show linear residuals because we have applied the according transformation to all the variables. We can also identify some influential observations with cook's distance. We will treat those later.
 
 
 ```{r}
@@ -311,7 +325,7 @@ par(mfrow=c(2,2))
 plot(m4,id.n=0)
 par(mfrow=c(1,1))
 ```
-We can see that with this new model is fully homoscesdastic, and it is also normally distributed.
+We can see that with this new model can be considered homoskesdastic, and it is also normally distributed.
 
 ### Adding interactions 
 
@@ -322,10 +336,11 @@ m5<-update(m3, ~.+fuelType*(engineSize+transmission+manufacturer)^2, data=df_cle
 #we will perform a step to remove the insignificant interactions from our model
 m5_aux <- step( m5, k=log(nrow(df_clean)))
 #from the step function we are left with this model
-m5 <- lm(log(price) ~ mileage + sqrt(tax) + I(mpg^-2) + I(years_after_sell^2) + fuelType + engineSize + transmission + manufacturer + engineSize:manufacturer + fuelType:engineSize+ fuelType:manufacturer + fuelType:engineSize:manufacturer, data=df_clean)
+m5 <- lm(log(price) ~ mileage + sqrt(tax) + I(mpg^-2) + poly(years_after_sell,2) + fuelType + engineSize + transmission + manufacturer + engineSize:manufacturer + fuelType:engineSize+ fuelType:manufacturer + fuelType:engineSize:manufacturer, data=df_clean)
+
 Anova(m5)
 #we see from the Anova that the interaction between fuelType and engineSize has no relevancy, so we will remove it from our model
-m5 <- lm(log(price) ~ mileage + sqrt(tax) + I(mpg^-2) + I(years_after_sell^2) + fuelType + engineSize + transmission + manufacturer + engineSize:manufacturer + fuelType:manufacturer + fuelType:engineSize:manufacturer, data=df_clean)
+m5 <- lm(log(price) ~ mileage + sqrt(tax) + I(mpg^-2) + poly(years_after_sell,2) + fuelType + engineSize + transmission + manufacturer + engineSize:manufacturer + fuelType:manufacturer + fuelType:engineSize:manufacturer, data=df_clean)
 ```
 
 We will now consider adding an interaction between a factor and a covariate. To choose the best pairing, we should join the couple of variables with the worst correlation in order to create a new sort of variable that will give greater information to our model. On the other hand, if we join 2 variables with strong correlation, we would be just adding redundant information because 1 variable explaing the other. From our previous analyses, we found that tax and manufacturer were not very correlated so we will pair those 2 variables.
@@ -348,19 +363,20 @@ We will now compare model 4 and model 6 to see if the upgrade is worth it.
 anova(m6,m4) #it does
 
 #let's compare the AIC of both models to see which has the better fit
-abs(AIC(m6, m4)) #model 4 offers a better fit
-abs(BIC(m6, m4)) #model 4 offers a better fit
-#model 6 = 0.843
-#model 4 = 0.8356
+AIC(m6, m4) #model 4 offers a better fit
+BIC(m6, m4) #model 4 offers a better fit
+#model 6 R2 = 0.843
+#model 4 R2 = 0.8357
+
 ```
-Model 4 also offers a greater overall fit as the AIC & BIC scores are greater, but model 6 offers a greater residual squared score, so we will stay with model 6 just for performance reasons.
+Model 4 also offers a greater overall fit as the AIC & BIC scores are greater, but model 6 offers a light improvement over the residual squared score. Overall model 4 is better, as it is way smaller and simpler than model 6, so we will stay with model 4.
 
 
 ## Treatment of influential data
 
 ```{r}
 par(mfrow=c(2,2))
-plot(m6,id.n=0)
+plot(m4,id.n=0)
 par(mfrow=c(1,1))
 
 ```
@@ -378,55 +394,46 @@ hat.plot <-function(fit) {
               plot(hatvalues(fit), main="Index Plot of Hat Values")
               abline(h=3*p/n, col="red", lty=2)
 }
-hat.plot(m6)
+hat.plot(m4)
 ```
 As a priori observation of influence we will use the hat value that is the most common measure of leverage. From the hat plot generated we can see we have a lot of observations with high leverage (the points outside the red line).
 
 ```{r, out.width="50%", out.height="50%"}
-ols_plot_cooksd_chart(m6)
+ols_plot_cooksd_chart(m4)
 ```
 As a posteriori observation of influence we will use the cook's distance because it is the most common measure of influence. From the cook's D chart generated we can see we have a lot of observations with high influential level.
 
 Finally to choose the influential observations we will use Cook's distance because it offers a consistent method for detecting them. We could use a mixture of hat values (leverage obs.) and rstudent residuals (outlying obs.) to predict influential observations, but it is not as efficient and reliable.
 ```{r, out.width="50%", out.height="50%"}
 # Define initial parameters to calculate obs. with high leverage:
-p <-length(m6$coefficients)
-n <- length(m6$fitted.values)
+p <-length(m4$coefficients)
+n <- length(m4$fitted.values)
 hat_param <- 3
 #we use as a threshold to label the leverage of the obs 3*p/n because we have a large dataset
 
 # A priori influential observation
-influencePlot(m6, id=list(n=10))
-ll_priori_influential <- which(abs(hatvalues(m6))>hat_param*(p/n))
+influencePlot(m4, id=list(n=10))
+ll_priori_influential <- which(abs(hatvalues(m4))>hat_param*(p/n))
 length(ll_priori_influential)
-boxplot(abs(rstudent(m6)))
-quants_rst <- calcQ(abs(rstudent(m6)))
+boxplot(abs(rstudent(m4)))
+quants_rst <- calcQ(abs(rstudent(m4)))
 abline(h=quants_rst$souts, col="red")
-quants_rst$souts
 #let's choose as rstudent threshold the severe outlier threshold
-ll_rst <- which(abs(rstudent(m6))>quants_rst$souts);
+ll_rst <- which(abs(rstudent(m4))>quants_rst$souts);
 length(ll_rst)
 ll_hat_rst <- unique(c(ll_priori_influential,ll_rst))
 length(ll_hat_rst)
 
 # A posteriori influential observation:
-ll_posteriori_influential<-which(abs(cooks.distance(m6))>(4/(n-p)))
+ll_posteriori_influential<-which(abs(cooks.distance(m4))>(4/(n-p)))
 length(ll_posteriori_influential)
 #a general rule of thumb is that D(i) > 4/(n-p) is a good threshold for determining highly influential points for cook's distance
 
-m7_hat_rst<-update(m6, data=df_clean[-ll_hat_rst,])
-#summary(m7_hat_rst)
-# Summary output:
-## Residual standard error: 0.1609 on 4678 degrees of freedom
-## Multiple R-squared: 0.867, Adjusted R-squared: 0.8663
-## F-statistic: 1326 on 23 and 4678 DF, p-value: < 2.2e-16
+m7_hat_rst<-update(m4, data=df_clean[-ll_hat_rst,])
+summary(m7_hat_rst)
 
-m7_cook <- update(m6, data=df_clean[-ll_posteriori_influential,])
-#summary(m7_cook)
-#summary output:
-## Residual standard error: 0.1536 on 4656 degrees of freedom
-## Multiple R-squared: 0.8745, Adjusted R-squared: 0.8737
-## F-statistic: 1047 on 31 and 4656 DF, p-value: < 2.2e-16
+m7_cook <- update(m4, data=df_clean[-ll_posteriori_influential,])
+summary(m7_cook)
 
 m7 <- m7_cook
 ```
@@ -436,7 +443,7 @@ As expected, the model with the removal of influential data using cook's distanc
 ## Diagnostics of our final Model
 ```{r, out.width="50%", out.height="50%"}
 Anova(m7)
-#all variables and interactions are relevant
+#all variables are relevant
 par(mfrow=c(1,1))
 plot(allEffects(m7), selection=1)
 plot(allEffects(m7), selection=2)
@@ -445,12 +452,13 @@ plot(allEffects(m7), selection=4)
 plot(allEffects(m7), selection=5)
 plot(allEffects(m7), selection=6)
 plot(allEffects(m7), selection=7)
+plot(allEffects(m7), selection=8)
 ```
  
 We see that our model defines the following:
 
 * the log(price) decreases in a linear way as the mileage grows
-* the log(price) increases as tax increases until tax=140, then log(price) decreases as tax increases
+* the log(price) increases as tax increases in a logarithmic way
 * the log(price) decreases in an exponential way as the mpg grows
 * the log(price) decreases in a quadratic way (-x^2) as the years_after_sell grows
 * the log(price) is higher with BMW, Merc and Audi cars than VW cars
@@ -464,7 +472,7 @@ par(mfrow=c(2,2))
 plot(m7,id.n=0)
 par(mfrow=c(1,1))
 ```
-In the residual plots we can see the same patter as before, the model presents homoscedasticity and normality and fits the linear hypothesis. This suggests a level of remarkable consistency with the predictions of the model. We can also see the effect of the deletion of infuential data as there are not outlying residuals.
+In the residual plots we can see the same patter as before, the model presents homoskedasticity and normality and fits the linear hypothesis. This suggests a level of remarkable consistency with the predictions of the model. We can also see the effect of the deletion of influential data as there are not outlying residuals.
 
 ```{r}
 marginalModelPlots(m7)
@@ -477,7 +485,7 @@ We can see from our plots that the model fits perfectly with the data.
 par(mfrow=c(1,1))
 influencePlot(m7, id=list(n=10))
 ```
-From a look at the influence plot, we can see a clar difference from the influence plot of model6. We can see now that we do not have any influential observation. We only have some obs. with some leverage but without being outliers and vice versa.
+From a look at the influence plot, we can see a clearly see difference from the influence plot of model6. We can see now that we do not have any influential observation. We only have some obs. with some leverage but without being outliers and vice versa.
 
 ```{r}
 df_clean2=df_clean[-ll_posteriori_influential,]
@@ -487,9 +495,6 @@ points(res.pca$ind$coord[,1], m7$fitted.values, col="red", pch=20)
 legend("topright", legend=c("Actual", "Predicted"),
        col=c("darkblue", "red"), pch=19, cex=0.8,
        title="Point types")
-
-#plot(x=c(1:length(m7$fitted.values)), log(df_clean2$price), col="darkgreen", pch=20)
-#points(x=c(1:length(m7$fitted.values)), y=m7$fitted.values, col="red", pch=19)
 
 ```
 As an experiment to see how the model was behaving, we performed a pca with just numeric variables and we plotted the first dimension of the pca in the x-axis and the actual price and predicted price on the y-axis. We can see from our graph that our model does very good predictions as it almost fits all the data. With a perfect model, we would have a perfect overlapping of the 2 points.
@@ -502,7 +507,7 @@ pre <- predict(m7, newdata = data.frame(transmission="f.Trans-Automatic", mileag
 I(exp(1)^pre)
 error <- (18950 - 21141.53)/18950 *100; error
 ```
-We get as a result a 95% confidence interval of [15625.2 28605.34] with the actual predicted price being 21141.53 real price being £18,950 so our model has an error of 11.5%, this is more or less the expected error because of our model expains 87.45% of the variability.
+We get as a result a 95% confidence interval of [16601.3 to 29954.19] with the actual predicted price being 22299.74 real price being £18,950 so our model has an error of 11.5%, this is more or less the expected error because of our model expains 87.77% of the variability.
 
 # Binary Logistics Regression
 
